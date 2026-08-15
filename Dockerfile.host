@@ -1,0 +1,7 @@
+FROM python:3.12-alpine
+WORKDIR /experiment
+COPY pyproject.toml ./
+COPY porter ./porter
+RUN pip install --no-cache-dir .
+COPY demo/host.py ./host.py
+CMD ["python", "host.py"]

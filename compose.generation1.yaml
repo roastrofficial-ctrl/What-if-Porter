@@ -1,0 +1,29 @@
+name: porter-generation1
+services:
+  sender-porter:
+    build: .
+    command: ["--identity", "sender", "--routes", "{\"recipient\":\"http://recipient-porter:7070\"}"]
+    volumes: [sender-ipc:/ipc]
+    networks: [porter]
+  recipient-porter:
+    build: .
+    command: ["--identity", "recipient", "--routes", "{\"sender\":\"http://sender-porter:7070\"}"]
+    volumes: [recipient-ipc:/ipc]
+    networks: [porter]
+  sender-host:
+    build: {context: ., dockerfile: Dockerfile.host}
+    environment: {HOST_ROLE: sender}
+    volumes: [sender-ipc:/ipc]
+    network_mode: none
+    depends_on: [sender-porter, recipient-porter]
+  recipient-host:
+    build: {context: ., dockerfile: Dockerfile.host}
+    environment: {HOST_ROLE: recipient}
+    volumes: [recipient-ipc:/ipc]
+    network_mode: none
+    depends_on: [sender-porter, recipient-porter]
+networks:
+  porter: {}
+volumes:
+  sender-ipc: {}
+  recipient-ipc: {}
