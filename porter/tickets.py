@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .lodgement import lodge as lodge_correspondence, recover
+from .custody import collect_package, find_collection
 
 
 def now_ms(): return int(time.time() * 1000)
@@ -43,7 +44,12 @@ def inspect(ipc,ticket_id,record=True):
     for path in (root/"inbox").glob("PKG-*.json"):
         candidate=json.loads(path.read_text())
         if candidate.get("in_reply_to")==snapshot["package"]:returns.append(candidate["package"])
-    if snapshot["collected_return"]:state="COLLECTED"
+    collected_return=snapshot["collected_return"]
+    if not collected_return:
+        for path in (root/"collections"/"facts").glob("CL-*.json"):
+            candidate=json.loads(path.read_text())["package"]
+            if candidate.get("in_reply_to")==snapshot["package"]: collected_return=candidate["package"];break
+    if collected_return:state="COLLECTED"
     elif snapshot["abandoned"] and returns:state="ABANDONED_WITH_RETURN"
     elif snapshot["abandoned"]:state="ABANDONED"
     elif returns:state="RETURN_HELD"
@@ -52,20 +58,25 @@ def inspect(ipc,ticket_id,record=True):
     carriage_path=root/"carriage"/(snapshot["package"]+".json")
     carriage=json.loads(carriage_path.read_text()) if carriage_path.exists() else {"knowledge":"NOT_YET_ATTEMPTED","attempts":[]}
     if record:event(root,ticket_id,"TICKET_INSPECTED",{"observed_state":state,"held_returns":len(returns),"carriage_knowledge":carriage["knowledge"]})
-    return {**snapshot,"state":state,"held_returns":returns,"duplicate_returns":max(0,len(returns)-1),"carriage_knowledge":carriage["knowledge"],"carriage_attempts":len(carriage["attempts"]),**({"acceptance_evidence":carriage["acceptance_evidence"]} if "acceptance_evidence" in carriage else {})}
+    return {**snapshot,"collected_return":collected_return,"state":state,"held_returns":returns,"duplicate_returns":max(0,len(returns)-1),"carriage_knowledge":carriage["knowledge"],"carriage_attempts":len(carriage["attempts"]),**({"acceptance_evidence":carriage["acceptance_evidence"]} if "acceptance_evidence" in carriage else {})}
 
 
-def collect(ipc,ticket_id):
+def collect(ipc,ticket_id,fail_after=None):
     root=Path(ipc);status=inspect(root,ticket_id,record=False)
     if status["collected_return"]:
-        return {"state":"ALREADY_COLLECTED","return":status["collected_return"],"package":json.loads((root/"collected"/(status["collected_return"]+".json")).read_text())}
+        return_id=status["collected_return"];target=root/"collected"/(return_id+".json")
+        fact=find_collection(root,return_id)
+        if not target.exists() and fact: collect_package(root,return_id,"HOST")
+        with locked_ticket(root,ticket_id) as (value,path):
+            if not value["collected_return"]:
+                value["collected_return"]=return_id;value["events"].append({"event":"RETURN_COLLECTED","at_ms":now_ms(),"details":{"return":return_id,"collection":fact and fact["collection"]}});temporary=path.with_suffix(".tmp");temporary.write_text(json.dumps(value,separators=(",",":"))+"\n");os.replace(temporary,path)
+        return {"state":"ALREADY_COLLECTED","return":return_id,"collection":fact and fact["collection"],"package":json.loads(target.read_text())}
     if not status["held_returns"]:return {"state":status["state"],"package":None}
-    return_id=sorted(status["held_returns"])[0];source=root/"inbox"/(return_id+".json");target=root/"collected"/(return_id+".json");target.parent.mkdir(parents=True,exist_ok=True)
-    try:os.replace(source,target)
-    except FileNotFoundError:return {"state":"COLLECTION_CONTESTED","package":None}
+    return_id=sorted(status["held_returns"])[0]
+    fact=collect_package(root,return_id,"HOST",fail_after)
     with locked_ticket(root,ticket_id) as (value,path):
-        value["collected_return"]=return_id;value["events"].append({"event":"RETURN_COLLECTED","at_ms":now_ms(),"details":{"return":return_id}});temporary=path.with_suffix(".tmp");temporary.write_text(json.dumps(value,separators=(",",":"))+"\n");os.replace(temporary,path)
-    return {"state":"COLLECTED","return":return_id,"package":json.loads(target.read_text()),"duplicates_retained":max(0,len(status["held_returns"])-1)}
+        value["collected_return"]=return_id;value["events"].append({"event":"RETURN_COLLECTED","at_ms":now_ms(),"details":{"return":return_id,"collection":fact["collection"]}});temporary=path.with_suffix(".tmp");temporary.write_text(json.dumps(value,separators=(",",":"))+"\n");os.replace(temporary,path)
+    return {"state":fact["state"],"return":return_id,"collection":fact["collection"],"package":fact["package"],"duplicates_retained":max(0,len(status["held_returns"])-1)}
 
 
 def abandon(ipc,ticket_id):

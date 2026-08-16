@@ -13,6 +13,7 @@ from .protocol import atomic_write, validate
 from .tickets import event, ticket_for_package
 from .lodgement import recover
 from .carriage import accept, acceptance_evidence, note_attempt, recover_acceptances, retain_evidence
+from .custody import recover_collections
 
 
 class SimulatedCarriageCrash(RuntimeError):
@@ -32,6 +33,7 @@ class Porter:
             if not target.exists(): claimed.rename(target)
         recover(self.ipc)
         recover_acceptances(self.ipc)
+        recover_collections(self.ipc)
 
     def deposit(self, value, fail_after=None):
         validate(value)

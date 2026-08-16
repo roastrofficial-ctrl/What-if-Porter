@@ -219,14 +219,46 @@ The historical lesson is:
 
 > **Fact can outrun knowledge.**
 
-## Candidate Generation V — Responsibility After Acceptance
+## Generation V — Responsibility After Acceptance
 
-Acceptance evidence is deliberately historical. After the recipient Host
-collects a Package, the sender still knows only that the receiving Porter once
-accepted responsibility—not whether it currently holds the Package or where
-responsibility moved next. Generation V should investigate the lifecycle of
-custody after acceptance, and what evidence, if any, may truthfully cross back,
-without turning collection or application processing into notification.
+Collection has earned its own immutable `CL-…` threshold. It can only be
+initiated by the recipient Host. The fact contains the exact accepted Package,
+names its `AC-…`, collector and time, and attests narrowly that the Package was
+made recoverable in Host custody. It does not attest that the Host process
+retained private evidence, began application work, completed work, committed an
+application transaction, or lodged a Return.
+
+Before `CL`, `AC` plus the recoverable inbox projection lets the recipient Porter
+claim current custody. After `CL`, the Host can recover the Package from the
+Collection fact and the Porter can no longer claim it currently holds the
+correspondence. The collected Package and Package-to-Collection association are
+replay-safe projections. A crash may briefly leave duplicate byte projections,
+but the canonical facts assign responsibility only once and recovery repairs the
+view.
+
+Repeated collection returns the original `CL`; it repairs the Host's knowledge
+or projection rather than creating a second transfer. `LG`, `AC`, and `CL`
+remain immutable historical facts. Collection knowledge stays at the recipient
+boundary and does not silently travel to the origin.
+
+The strongest experiment killed networkless HarmonicDB immediately after `CL`
+and before HDBE processing. Restart recovered Host custody, then separately
+performed and recorded the application attempt, lodged a Return, and allowed
+Find Me to collect it normally. The crash proved correspondence recovery; it did
+not prove exactly-once HDBE execution.
+
+The historical lesson is:
+
+> **Collection transfers custody, not meaning.**
+
+## Candidate Generation VI — Application Disposition
+
+PORTER responsibility now ends cleanly at recoverable Host custody, but a Host
+can still crash during application work or after an effect and before its own
+commit. Generation VI should investigate whether correspondence needs a local,
+Host-authored disposition after Collection—or whether the honest result is that
+this ambiguity belongs entirely to each application. It must not infer
+processing from Collection or promise exactly-once computation.
 
 ROUNDS has earned shared names and an observable client journal, but not a
 PORTER wire verb. Hosts can therefore share the boundary ceremony while retaining
