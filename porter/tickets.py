@@ -49,8 +49,10 @@ def inspect(ipc,ticket_id,record=True):
     elif returns:state="RETURN_HELD"
     elif snapshot["expires"]<=int(time.time()):state="EXPIRED_OBSERVED"
     else:state="OUTSTANDING"
-    if record:event(root,ticket_id,"TICKET_INSPECTED",{"observed_state":state,"held_returns":len(returns)})
-    return {**snapshot,"state":state,"held_returns":returns,"duplicate_returns":max(0,len(returns)-1)}
+    carriage_path=root/"carriage"/(snapshot["package"]+".json")
+    carriage=json.loads(carriage_path.read_text()) if carriage_path.exists() else {"knowledge":"NOT_YET_ATTEMPTED","attempts":[]}
+    if record:event(root,ticket_id,"TICKET_INSPECTED",{"observed_state":state,"held_returns":len(returns),"carriage_knowledge":carriage["knowledge"]})
+    return {**snapshot,"state":state,"held_returns":returns,"duplicate_returns":max(0,len(returns)-1),"carriage_knowledge":carriage["knowledge"],"carriage_attempts":len(carriage["attempts"]),**({"acceptance_evidence":carriage["acceptance_evidence"]} if "acceptance_evidence" in carriage else {})}
 
 
 def collect(ipc,ticket_id):

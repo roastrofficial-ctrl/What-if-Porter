@@ -1,0 +1,28 @@
+name: porter-generation4
+services:
+  find-me-porter:
+    build: .
+    command: ["--identity", "find-me", "--routes", "{\"harmonicdb\":\"http://harmonicdb-porter:7070\"}", "--experiment-crash-before-acceptance-evidence"]
+    volumes: [find-me-ipc:/ipc]
+    networks: [porter]
+  harmonicdb-porter:
+    build: .
+    command: ["--identity", "harmonicdb", "--routes", "{\"find-me\":\"http://find-me-porter:7070\"}"]
+    volumes: [harmonicdb-ipc:/ipc]
+    networks: [porter]
+  harmonicdb-host:
+    build: {context: ../.., dockerfile: machine/porter/HarmonicDB.Dockerfile}
+    environment: {PORTER_IPC: /porter}
+    volumes: [harmonicdb-ipc:/porter, harmonicdb-data:/data]
+    network_mode: none
+  find-me-host:
+    build: .
+    entrypoint: ["python"]
+    volumes: [find-me-ipc:/ipc]
+    network_mode: none
+networks:
+  porter: {}
+volumes:
+  find-me-ipc: {}
+  harmonicdb-ipc: {}
+  harmonicdb-data: {}

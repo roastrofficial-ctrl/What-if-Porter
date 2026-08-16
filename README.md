@@ -186,13 +186,47 @@ leaves the Return collectable. A crash after collection leaves application
 completion outside PORTER, although the retained collected Package permits a
 later application attempt to reason about recovery.
 
-## Candidate Generation IV — Carriage Knowledge
+## Generation IV — Carriage Knowledge
 
-Do not implement this yet. The next PORTER pressure is the interval after a
-recipient accepted a Package but before the sender durably learned that fact.
-Replaying may duplicate carriage; refusing to replay may strand it. Generation
-IV should investigate how Porters reconcile that knowledge without promising
-exactly-once application execution.
+Generation IV separates a remote fact from the originating Porter's knowledge
+of it. The recipient atomically publishes one canonical acceptance fact whose
+identity is `AC-…` and which contains the accepted Package. The inbox is a
+replay-safe projection of that responsibility. If the recipient restarts after
+acceptance but before materialising the inbox, it reconstructs the Package.
+
+A Receipt now attests exactly one historical fact:
+
+> The named recipient Porter durably accepted responsibility for this exact
+> Package identity and digest at the stated time.
+
+Its state is `REMOTE_PORTER_DURABLY_ACCEPTED`. It does not attest to Host
+collection, processing, success, Return lodgement, or current custody. A
+successful HTTP response is merely transport until that evidence is durably
+retained by the sender. Before then the sender records `ACCEPTANCE_UNKNOWN`.
+
+Repeated carriage preserves `PKG-…`. The recipient returns the original
+acceptance evidence when identity and content match; the same identity with
+different content is refused. Thus repetition can repair knowledge without
+multiplying correspondence. The recipient owns this identity recognition at its
+acceptance boundary. It does not deduplicate application execution.
+
+The strong experiment deliberately loses evidence after real HDBE correspondence
+has been accepted, restarts the sender, repeats carriage, recovers the original
+acceptance, and then continues through isolated HarmonicDB collection and an
+ordinary Return. Find Me remains untouched until it makes a Round.
+
+The historical lesson is:
+
+> **Fact can outrun knowledge.**
+
+## Candidate Generation V — Responsibility After Acceptance
+
+Acceptance evidence is deliberately historical. After the recipient Host
+collects a Package, the sender still knows only that the receiving Porter once
+accepted responsibility—not whether it currently holds the Package or where
+responsibility moved next. Generation V should investigate the lifecycle of
+custody after acceptance, and what evidence, if any, may truthfully cross back,
+without turning collection or application processing into notification.
 
 ROUNDS has earned shared names and an observable client journal, but not a
 PORTER wire verb. Hosts can therefore share the boundary ceremony while retaining

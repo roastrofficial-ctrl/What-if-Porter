@@ -35,7 +35,7 @@ class GenerationOne(unittest.TestCase):
         value=package("sender","recipient","unknown.application.kind",{"secret_shape":{"x":[1,2,3]}})
         atomic_write(self.a/"outgoing",value);held=self.b/"inbox"/(value["package"]+".json");self.wait(held)
         self.assertEqual(json.loads(held.read_text())["payload"],value["payload"])
-        receipt=self.a/"receipts"/(value["package"]+".json");self.wait(receipt);self.assertEqual(json.loads(receipt.read_text())["state"],"HELD_FOR_COLLECTION")
+        receipt=self.a/"receipts"/(value["package"]+".json");self.wait(receipt);self.assertEqual(json.loads(receipt.read_text())["state"],"REMOTE_PORTER_DURABLY_ACCEPTED")
 
     def test_invalid_or_expired_packages_are_refused(self):
         value=package("sender","recipient","demo.note",{});value["expires"]=value["created"]-1

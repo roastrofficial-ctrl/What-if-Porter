@@ -59,8 +59,12 @@ final class CollectionTickets
         elseif ($returns) $state = 'RETURN_HELD';
         elseif ($ticket['expires'] <= time()) $state = 'EXPIRED_OBSERVED';
         else $state = 'OUTSTANDING';
-        if ($record) $this->event($ticketId, 'TICKET_INSPECTED', ['observed_state' => $state, 'held_returns' => count($returns)]);
-        return [...$ticket, 'state' => $state, 'held_returns' => $returns, 'duplicate_returns' => max(0, count($returns) - 1)];
+        $carriagePath = $this->path("carriage/{$ticket['package']}.json");
+        $carriage = is_file($carriagePath) ? json_decode((string)file_get_contents($carriagePath), true) : ['knowledge' => 'NOT_YET_ATTEMPTED', 'attempts' => []];
+        if ($record) $this->event($ticketId, 'TICKET_INSPECTED', ['observed_state' => $state, 'held_returns' => count($returns), 'carriage_knowledge' => $carriage['knowledge']]);
+        $result = [...$ticket, 'state' => $state, 'held_returns' => $returns, 'duplicate_returns' => max(0, count($returns) - 1), 'carriage_knowledge' => $carriage['knowledge'], 'carriage_attempts' => count($carriage['attempts'])];
+        if (isset($carriage['acceptance_evidence'])) $result['acceptance_evidence'] = $carriage['acceptance_evidence'];
+        return $result;
     }
 
     public function makeRound(array $ticketIds): array
@@ -71,7 +75,8 @@ final class CollectionTickets
         $observedAt = $this->now();
         $roundId = 'RD-' . bin2hex(random_bytes(16));
         $observations = array_map(function (array $ticket) use ($observedAt) {
-            $value = ['ticket' => $ticket['ticket'], 'package' => $ticket['package'], 'state' => $ticket['state'], 'held_returns' => $ticket['held_returns'], 'duplicate_returns' => $ticket['duplicate_returns']];
+            $value = ['ticket' => $ticket['ticket'], 'package' => $ticket['package'], 'state' => $ticket['state'], 'held_returns' => $ticket['held_returns'], 'duplicate_returns' => $ticket['duplicate_returns'], 'carriage_knowledge' => $ticket['carriage_knowledge'], 'carriage_attempts' => $ticket['carriage_attempts']];
+            if (isset($ticket['acceptance_evidence'])) $value['acceptance_evidence'] = $ticket['acceptance_evidence'];
             $heldAt = $this->eventAt($ticket, 'RETURN_HELD');
             if ($heldAt !== null) {
                 $value['return_held_at_ms'] = $heldAt;

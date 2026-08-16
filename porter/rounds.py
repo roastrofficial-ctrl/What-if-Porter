@@ -19,7 +19,10 @@ def _observation(ticket: dict, observed_at: int) -> dict:
         "state": ticket["state"],
         "held_returns": ticket["held_returns"],
         "duplicate_returns": ticket["duplicate_returns"],
+        "carriage_knowledge": ticket["carriage_knowledge"],
+        "carriage_attempts": ticket["carriage_attempts"],
     }
+    if "acceptance_evidence" in ticket: value["acceptance_evidence"] = ticket["acceptance_evidence"]
     held_at = _event_at(ticket, "RETURN_HELD")
     if held_at is not None:
         value["return_held_at_ms"] = held_at
