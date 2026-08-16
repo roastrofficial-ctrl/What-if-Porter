@@ -4,11 +4,10 @@ import fcntl
 import json
 import os
 import time
-import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
-from .protocol import atomic_write
+from .lodgement import lodge as lodge_correspondence, recover
 
 
 def now_ms(): return int(time.time() * 1000)
@@ -29,12 +28,7 @@ def event(ipc,ticket_id,kind,details=None):
 
 
 def lodge(ipc, package):
-    root=Path(ipc);ticket_id="CT-"+uuid.uuid4().hex;ticket={"protocol":"PORTER/1","ticket":ticket_id,"package":package["package"],"created":package["created"],"expires":package["expires"],"abandoned":False,"collected_return":None,"events":[{"event":"DEPOSITED","at_ms":now_ms()}]}
-    tickets=root/"tickets";by_package=tickets/"by-package";tickets.mkdir(parents=True,exist_ok=True);by_package.mkdir(parents=True,exist_ok=True)
-    path=tickets/(ticket_id+".json");temporary=tickets/("."+ticket_id+".tmp");temporary.write_text(json.dumps(ticket,separators=(",",":"))+"\n");os.replace(temporary,path)
-    mapping=by_package/package["package"];mapping.write_text(ticket_id+"\n")
-    atomic_write(root/"outgoing",package)
-    return ticket
+    return lodge_correspondence(ipc,package)
 
 
 def ticket_for_package(ipc,package_id):

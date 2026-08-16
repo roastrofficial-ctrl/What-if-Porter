@@ -6,20 +6,43 @@ use RuntimeException;
 
 final class CollectionTickets
 {
-    public function __construct(private readonly string $ipc, private readonly string $sender) {}
+    public function __construct(private readonly string $ipc, private readonly string $sender) { $this->recoverLodgements(); }
 
     public function deposit(string $recipient, string $kind, array $payload, int $ttl = 300): array
     {
         $now = time();
         $packageId = 'PKG-' . bin2hex(random_bytes(16));
         $ticketId = 'CT-' . bin2hex(random_bytes(16));
+        $lodgementId = 'LG-' . bin2hex(random_bytes(16));
         $package = ['protocol' => 'PORTER/1', 'package' => $packageId, 'from' => $this->sender, 'to' => $recipient, 'kind' => $kind, 'created' => $now, 'expires' => $now + $ttl, 'reply_to' => $this->sender, 'payload' => $payload];
-        $ticket = ['protocol' => 'PORTER/1', 'ticket' => $ticketId, 'package' => $packageId, 'created' => $now, 'expires' => $now + $ttl, 'abandoned' => false, 'collected_return' => null, 'events' => [['event' => 'DEPOSITED', 'at_ms' => $this->now()]]];
-        foreach (['tickets', 'tickets/by-package', 'outgoing', 'inbox', 'collected'] as $folder) $this->folder($folder);
-        $this->atomic("tickets/{$ticketId}.json", $ticket);
-        file_put_contents($this->path("tickets/by-package/{$packageId}"), $ticketId . "\n");
-        $this->atomic("outgoing/{$packageId}.json", $package);
+        $lodgedAt = $this->now();
+        $ticket = ['protocol' => 'PORTER/1', 'ticket' => $ticketId, 'package' => $packageId, 'lodgement' => $lodgementId, 'created' => $now, 'expires' => $now + $ttl, 'abandoned' => false, 'collected_return' => null, 'events' => [['event' => 'LODGED', 'at_ms' => $lodgedAt, 'details' => ['lodgement' => $lodgementId]]]];
+        $lodgement = ['protocol' => 'PORTER/1', 'kind' => 'LODGEMENT', 'lodgement' => $lodgementId, 'state' => 'LODGED', 'lodged_at_ms' => $lodgedAt, 'ticket' => $ticket, 'package' => $package];
+        foreach (['lodgements/lodged', 'lodgements/locks', 'tickets', 'tickets/by-package', 'outgoing', 'inbox', 'collected', 'receipts', 'refused'] as $folder) $this->folder($folder);
+        // This atomic publication is the ceremony's one durable truth. Everything
+        // below is a replay-safe materialisation of correspondence already lodged.
+        $this->atomic("lodgements/lodged/{$lodgementId}.json", $lodgement);
+        $this->materialize($lodgement);
         return $ticket;
+    }
+
+    public function recoverLodgements(): void
+    {
+        $this->folder('lodgements/lodged');
+        foreach (glob($this->path('lodgements/lodged/LG-*.json')) ?: [] as $path) {
+            $value = json_decode((string)file_get_contents($path), true);
+            if (is_array($value)) $this->materialize($value);
+        }
+    }
+
+    public function resolveLodgement(string $lodgementId): array
+    {
+        $path = $this->path("lodgements/lodged/{$lodgementId}.json");
+        if (!is_file($path)) return ['lodgement' => $lodgementId, 'state' => 'NEVER_LODGED'];
+        $value = json_decode((string)file_get_contents($path), true);
+        if (!is_array($value)) throw new RuntimeException('Unreadable PORTER lodgement fact');
+        $this->materialize($value);
+        return ['lodgement' => $lodgementId, 'state' => 'DEFINITELY_LODGED', 'ticket' => $value['ticket']['ticket'], 'package' => $value['package']['package']];
     }
 
     public function inspect(string $ticketId, bool $record = true): array
@@ -38,6 +61,33 @@ final class CollectionTickets
         else $state = 'OUTSTANDING';
         if ($record) $this->event($ticketId, 'TICKET_INSPECTED', ['observed_state' => $state, 'held_returns' => count($returns)]);
         return [...$ticket, 'state' => $state, 'held_returns' => $returns, 'duplicate_returns' => max(0, count($returns) - 1)];
+    }
+
+    public function makeRound(array $ticketIds): array
+    {
+        if ($ticketIds === []) throw new RuntimeException('A PORTER Round requires at least one Collection Ticket');
+        $beganAt = $this->now();
+        $snapshots = array_map(fn ($ticketId) => $this->inspect((string)$ticketId), $ticketIds);
+        $observedAt = $this->now();
+        $roundId = 'RD-' . bin2hex(random_bytes(16));
+        $observations = array_map(function (array $ticket) use ($observedAt) {
+            $value = ['ticket' => $ticket['ticket'], 'package' => $ticket['package'], 'state' => $ticket['state'], 'held_returns' => $ticket['held_returns'], 'duplicate_returns' => $ticket['duplicate_returns']];
+            $heldAt = $this->eventAt($ticket, 'RETURN_HELD');
+            if ($heldAt !== null) {
+                $value['return_held_at_ms'] = $heldAt;
+                $value['observation_latency_ms'] = max(0, $observedAt - $heldAt);
+                $lodgedAt = $this->eventAt($ticket, 'LODGED');
+                if ($lodgedAt !== null) {
+                    $value['lodged_at_ms'] = $lodgedAt;
+                    $value['carriage_latency_ms'] = max(0, $heldAt - $lodgedAt);
+                }
+            }
+            return $value;
+        }, $snapshots);
+        $round = ['vocabulary' => 'PORTER-ROUNDS/1', 'round' => $roundId, 'initiated_by' => $this->sender, 'began_at_ms' => $beganAt, 'observed_at_ms' => $observedAt, 'observations' => $observations];
+        $this->folder('rounds');
+        $this->atomic("rounds/{$roundId}.json", $round);
+        return $round;
     }
 
     public function collect(string $ticketId): array
@@ -77,6 +127,36 @@ final class CollectionTickets
             return $ticket;
         });
     }
+    private function eventAt(array $ticket, string $kind): ?int
+    {
+        $times = [];
+        foreach ($ticket['events'] ?? [] as $event) if (($event['event'] ?? null) === $kind) $times[] = (int)$event['at_ms'];
+        return $times === [] ? null : max($times);
+    }
+    private function materialize(array $lodgement): void
+    {
+        $ticket = $lodgement['ticket'];
+        $package = $lodgement['package'];
+        foreach (['lodgements/locks', 'tickets', 'tickets/by-package', 'outgoing', 'receipts', 'refused'] as $folder) $this->folder($folder);
+        $lockPath = $this->path("lodgements/locks/{$lodgement['lodgement']}.lock");
+        $lock = fopen($lockPath, 'c+');
+        if (!$lock || !flock($lock, LOCK_EX)) throw new RuntimeException('Could not recover PORTER lodgement');
+        @chmod($lockPath, 0666);
+        try {
+            if (!is_file($this->path("tickets/{$ticket['ticket']}.json"))) $this->atomic("tickets/{$ticket['ticket']}.json", $ticket);
+            $mapping = $this->path("tickets/by-package/{$package['package']}");
+            $existing = is_file($mapping) ? trim((string)file_get_contents($mapping)) : null;
+            if ($existing !== null && $existing !== $ticket['ticket']) throw new RuntimeException('Package identity is associated with another Collection Ticket');
+            if ($existing === null) $this->atomicText("tickets/by-package/{$package['package']}", $ticket['ticket'] . "\n");
+            $id = $package['package'];
+            $settled = is_file($this->path("receipts/{$id}.json")) || is_file($this->path("refused/{$id}.json"));
+            $moving = is_file($this->path("outgoing/{$id}.carrying"));
+            if (!$settled && !$moving && !is_file($this->path("outgoing/{$id}.json"))) $this->atomic("outgoing/{$id}.json", $package);
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
     private function readTicket(string $id): array
     {
         return $this->read("tickets/{$id}.json");
@@ -108,7 +188,25 @@ final class CollectionTickets
     {
         $target = $this->path($relative);
         $temporary = dirname($target) . '/.' . basename($target) . '.' . bin2hex(random_bytes(4)) . '.tmp';
-        file_put_contents($temporary, json_encode($value, JSON_THROW_ON_ERROR));
+        $stream = fopen($temporary, 'wb');
+        if (!$stream) throw new RuntimeException('Could not write PORTER durable fact');
+        fwrite($stream, json_encode($value, JSON_THROW_ON_ERROR));
+        fflush($stream);
+        fsync($stream);
+        fclose($stream);
+        rename($temporary, $target);
+    }
+    private function atomicText(string $relative, string $value): void
+    {
+        $target = $this->path($relative);
+        $this->folder(dirname($relative));
+        $temporary = dirname($target) . '/.' . basename($target) . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        $stream = fopen($temporary, 'wb');
+        if (!$stream) throw new RuntimeException('Could not write PORTER association');
+        fwrite($stream, $value);
+        fflush($stream);
+        fsync($stream);
+        fclose($stream);
         rename($temporary, $target);
     }
     private function path(string $relative): string

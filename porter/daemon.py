@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 
 from .protocol import atomic_write, validate
 from .tickets import event, ticket_for_package
+from .lodgement import recover
 
 
 class Porter:
@@ -20,6 +21,7 @@ class Porter:
         for name in ("outgoing","inbox","collected","receipts","refused"):
             folder=self.ipc/name;folder.mkdir(parents=True,exist_ok=True);folder.chmod(0o777)
         for lock in (self.ipc/"tickets").glob("CT-*.lock") if (self.ipc/"tickets").exists() else []:lock.chmod(0o666)
+        recover(self.ipc)
 
     def deposit(self, value):
         validate(value)
@@ -39,6 +41,7 @@ class Porter:
 
     def carry(self):
         while self.running:
+            recover(self.ipc)
             for path in sorted((self.ipc/"outgoing").glob("PKG-*.json")):
                 claimed=path.with_suffix(".carrying")
                 try:path.rename(claimed)

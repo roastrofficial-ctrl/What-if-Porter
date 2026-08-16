@@ -121,24 +121,79 @@ and leaves the others visible; it neither suppresses them nor claims that the
 recipient computed only once. PORTER owns Tickets and Package carriage. The
 requesting application separately owns what should happen after collection.
 
-Run both generations:
+Run the generations:
 
 ```sh
 python3 -m unittest -v
 ./tests/docker_generation1.sh
 ./tests/docker_generation2.sh
+./tests/docker_generation3.sh
 ```
 
 Generation II exposed a mundane but important protocol dependency: shared IPC
 lock files need an explicit cross-user permission ABI. Atomic rename alone was
 not sufficient when Porter and Host containers used different users.
 
-## Candidate Generation III — Lodgement Integrity
+## Generation III — Lodgement Integrity
 
-Do not implement this yet. A Generation II lodgement records the Ticket, its
-Package association, and the outgoing Package as separate durable facts. A Host
-or filesystem failure between those writes can leave an orphaned Ticket or
-Package. The next experiment should ask whether a local Porter-mediated
-**LODGEMENT** ceremony can make acceptance of those facts recoverable without
-turning the Porter into an application transaction manager. Introductions and
-identity claims should still wait.
+Generation III found a threshold. A Host privately drafts Package, Ticket and
+Lodgement identities, then atomically publishes one canonical `LG-…` **LODGED**
+fact into its local Porter boundary. Before publication there is no
+correspondence. After publication the Porter is responsible, even when the
+Ticket view, Package association and outgoing Package have not yet been
+materialised.
+
+```text
+private draft
+    │ atomic publication
+    ▼
+LODGED { Lodgement, Ticket, Package }
+    ├── Collection Ticket view
+    ├── Package → Ticket association
+    └── outgoing Package
+```
+
+Those three lower facts are replay-safe projections. Both the Host-side client
+and a restarted Porter can recover them from LODGED. The crash matrix interrupts
+after publication and after every projection; every case recovers as
+`DEFINITELY_LODGED`. A missing canonical fact is `NEVER_LODGED`. Local ambiguity
+did not need a third state because POSIX atomic rename supplied one honest
+linearisation point.
+
+This resembles a write-ahead record, but not a database transaction: it neither
+rolls back remote computation nor commits application work. A later ambiguity
+still exists if a recipient Porter accepts a Package but the sender Porter dies
+before retaining the Receipt. That is carriage knowledge, not local lodgement
+integrity.
+
+## ROUNDS — standard client vocabulary
+
+ROUNDS remains absent from the PORTER/1 wire protocol, but has graduated into
+the standard Host-side client vocabulary. A client can make one durable `RD-…`
+Round over one or many Collection Tickets. Its `PORTER-ROUNDS/1` record says who
+initiated the boundary visit, when it began and finished, and what state and
+timing facts were observed for every Ticket.
+
+A Round only observes. It never collects a Return, chooses a cadence, schedules
+another execution, or advances application work. Those are explicit Host
+decisions. Find Me decides that an active human journey deserves frequent
+attention, asks the client to make a Round, then separately collects and advances
+its own continuation ledger. The Porter never schedules, wakes or calls Find Me.
+
+Return-held time and Host-observed time are recorded separately. The difference
+is **observation latency**, not carriage latency. A crash after observation
+leaves the Return collectable. A crash after collection leaves application
+completion outside PORTER, although the retained collected Package permits a
+later application attempt to reason about recovery.
+
+## Candidate Generation IV — Carriage Knowledge
+
+Do not implement this yet. The next PORTER pressure is the interval after a
+recipient accepted a Package but before the sender durably learned that fact.
+Replaying may duplicate carriage; refusing to replay may strand it. Generation
+IV should investigate how Porters reconcile that knowledge without promising
+exactly-once application execution.
+
+ROUNDS has earned shared names and an observable client journal, but not a
+PORTER wire verb. Hosts can therefore share the boundary ceremony while retaining
+genuinely different attention and continuation policies.
