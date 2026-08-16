@@ -22,6 +22,18 @@ services:
     volumes: [recipient-ipc:/ipc]
     network_mode: none
     depends_on: [sender-porter, recipient-porter]
+  ticket-sender-host:
+    build: {context: ., dockerfile: Dockerfile.host}
+    environment: {HOST_ROLE: ticket-sender}
+    volumes: [sender-ipc:/ipc]
+    network_mode: none
+    depends_on: [sender-porter, recipient-porter]
+  ticket-collector-host:
+    build: {context: ., dockerfile: Dockerfile.host}
+    environment: {HOST_ROLE: ticket-collector}
+    volumes: [sender-ipc:/ipc]
+    network_mode: none
+    depends_on: [sender-porter, recipient-porter]
 networks:
   porter: {}
 volumes:

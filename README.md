@@ -1,4 +1,4 @@
-# PORTER — Generation I: The Host Stays Inside
+# PORTER
 
 Early packet networks briefly experimented with directly addressable
 computational hosts. The resulting security and operational failures established
@@ -94,11 +94,51 @@ Return, rather than hiding longer waits inside synchronous calls.
 - The sender addresses a recipient identity, never a Host location.
 - Returns are Packages and obey the same deposit/collection law.
 
-## Candidate Generation II — Collection Tickets
+## Generation II — Collection Tickets
 
-The most interesting next mutation is not authentication yet. It is admitting
-that useful Hosts should not block while staring at their Porter. A deposit could
-yield a durable local Collection Ticket; a Host could continue other work and
-later ask which tickets have Returns. This would force idempotency, duplicate
-collection, expiry and crash recovery to emerge before Introductions and Passport
-claims are layered onto an unstable primitive.
+A deposit now yields a durable local `CT-…` Collection Ticket. Lodgement ends
+without waiting for processing or a Return. A later Host execution may inspect
+the Ticket without collecting, explicitly collect one held Return, or abandon
+the application work. Tickets and Returns survive absence and restart of both
+the Host and its Porter.
+
+The Ticket lifecycle is deliberately observational rather than magical:
+
+- `OUTSTANDING` means no Return has yet been observed; it does not promise that
+  the recipient has not computed one.
+- `RETURN_HELD` means at least one matching Return is locally available.
+- `COLLECTED` records the single deterministic Return selected by the successful
+  collector. Repeated collection reports `ALREADY_COLLECTED`.
+- simultaneous collectors use a local lock; losers report
+  `COLLECTION_CONTESTED` rather than pretending exactly-once execution.
+- `EXPIRED_OBSERVED` records that a Host inspected after the Package expiry. It
+  does not erase a Package already in carriage or a late Return.
+- `ABANDONED` ends the application intention, not the correspondence. A late
+  Return remains held and becomes `ABANDONED_WITH_RETURN` evidence.
+
+Duplicate Returns are retained as facts. PORTER deterministically collects one
+and leaves the others visible; it neither suppresses them nor claims that the
+recipient computed only once. PORTER owns Tickets and Package carriage. The
+requesting application separately owns what should happen after collection.
+
+Run both generations:
+
+```sh
+python3 -m unittest -v
+./tests/docker_generation1.sh
+./tests/docker_generation2.sh
+```
+
+Generation II exposed a mundane but important protocol dependency: shared IPC
+lock files need an explicit cross-user permission ABI. Atomic rename alone was
+not sufficient when Porter and Host containers used different users.
+
+## Candidate Generation III — Lodgement Integrity
+
+Do not implement this yet. A Generation II lodgement records the Ticket, its
+Package association, and the outgoing Package as separate durable facts. A Host
+or filesystem failure between those writes can leave an orphaned Ticket or
+Package. The next experiment should ask whether a local Porter-mediated
+**LODGEMENT** ceremony can make acceptance of those facts recoverable without
+turning the Porter into an application transaction manager. Introductions and
+identity claims should still wait.

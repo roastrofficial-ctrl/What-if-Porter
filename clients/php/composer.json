@@ -1,0 +1,7 @@
+{
+  "name": "porter/php-client",
+  "description": "PORTER/1 Host-side deposit, Collection Ticket and collection client",
+  "type": "library",
+  "autoload": {"psr-4": {"Porter\\Client\\": "src/"}},
+  "require": {"php": "^8.2"}
+}

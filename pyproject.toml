@@ -13,3 +13,4 @@ include = ["porter*"]
 
 [project.scripts]
 porter = "porter.daemon:main"
+porter-evidence = "porter.evidence:main"
