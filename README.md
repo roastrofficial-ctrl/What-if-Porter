@@ -20,6 +20,11 @@ describes separately granted, bounded Porter-recipient ceremony;
 hostile measurements. HTTP's newly exposed assumptions are isolated in
 [CARRIAGE-PRESSURE.md](CARRIAGE-PRESSURE.md).
 
+PORTER 1.4 removes HTTP from the real Find Me ↔ HarmonicDB Porter path.
+[NATIVE-CARRIAGE.md](NATIVE-CARRIAGE.md) specifies encrypted asynchronous Units;
+[NATIVE-CARRIAGE-CHECK.md](NATIVE-CARRIAGE-CHECK.md) records relocation,
+ceremony, hostile framing, HTTP comparison and the real networkless journeys.
+
 Early packet networks briefly experimented with directly addressable
 computational hosts. The resulting security and operational failures established
 the Host Isolation Principle:

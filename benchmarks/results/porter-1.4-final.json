@@ -1,0 +1,69 @@
+{
+  "attempts": 10000,
+  "benchmark": "PORTER 1.4 Native Carriage",
+  "cryptographic_protection": {
+    "open": {
+      "median_ms": 0.10375,
+      "p95_ms": 0.1275,
+      "p99_ms": 0.142833,
+      "samples": 100
+    },
+    "plaintext_bytes": 561,
+    "seal": {
+      "median_ms": 0.076958,
+      "p95_ms": 0.099833,
+      "p99_ms": 0.10325,
+      "samples": 100
+    },
+    "wire_bytes": 936
+  },
+  "elapsed_seconds": 3.019932508468628,
+  "http": {
+    "growth": {
+      "bytes": 64285,
+      "files": 201
+    },
+    "latency": {
+      "median_ms": 2.219834,
+      "p95_ms": 2.852167,
+      "p99_ms": 4.736083,
+      "samples": 100
+    },
+    "operations": {
+      "fsync": 400,
+      "opens_read": 0,
+      "opens_write": 301,
+      "rename": 0,
+      "replace": 201,
+      "unlink": 0
+    },
+    "representative_body_bytes": 431
+  },
+  "invalid_protected_frames": {
+    "cpu_ms": 858.06233,
+    "wall_ms": 858.188042
+  },
+  "native": {
+    "growth": {
+      "bytes": 189785,
+      "files": 402
+    },
+    "latency": {
+      "median_ms": 10.990417,
+      "p95_ms": 18.2065,
+      "p99_ms": 34.045708,
+      "samples": 100
+    },
+    "operations": {
+      "fsync": 1898,
+      "opens_read": 827,
+      "opens_write": 1200,
+      "rename": 100,
+      "replace": 1000,
+      "unlink": 298
+    },
+    "representative_wire_bytes": 798
+  },
+  "process_max_rss_bytes": 37482496,
+  "samples": 100
+}

@@ -109,7 +109,12 @@ def retain_evidence(root: Path, receipt: dict) -> dict:
     knowledge_path = root / "carriage" / f"{receipt['package']}.json"
     if not knowledge_path.exists():
         raise ValueError("acceptance evidence has no local carriage attempt")
-    atomic_json(root / "receipts" / f"{receipt['package']}.json", receipt)
+    receipt_path = root / "receipts" / f"{receipt['package']}.json"
+    if receipt_path.exists():
+        if json.loads(receipt_path.read_text()) != receipt:
+            raise ValueError("acceptance evidence changed for one Package identity")
+    else:
+        atomic_json(receipt_path, receipt)
     value = json.loads(knowledge_path.read_text())
     value["knowledge"] = "REMOTE_ACCEPTANCE_KNOWN"
     value["acceptance_evidence"] = receipt

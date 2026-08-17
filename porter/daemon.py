@@ -53,6 +53,9 @@ class Porter:
         relationships=None,
         require_introductions=False,
         max_wire_bytes=262144,
+        native_private_key=None,
+        native_rendezvous=None,
+        native_listen=None,
     ):
         self.identity = identity
         self.ipc = Path(ipc)
@@ -94,6 +97,13 @@ class Porter:
         self.ceremonies = CeremonyService(
             self.ipc, self.identity, self.admission, relationships or {}
         )
+        self.native = None
+        if native_private_key and native_listen:
+            from .native import NativeCarriage
+
+            self.native = NativeCarriage(
+                self, native_private_key, native_rendezvous or {}, native_listen
+            )
 
     def deposit(self, value, fail_after=None, admission=None):
         validate(value)
@@ -170,6 +180,10 @@ class Porter:
     def carry(self):
         while self.running:
             recover(self.ipc)
+            if self.native:
+                self.native.tick()
+                time.sleep(0.05)
+                continue
             for claimed in sorted((self.ipc / "outgoing").glob("PKG-*.carrying")):
                 claimed.rename(claimed.with_suffix(".json"))
             for path in sorted((self.ipc / "outgoing").glob("PKG-*.json")):
@@ -191,6 +205,42 @@ class Porter:
                         "CEREMONY_RESULT_UNKNOWN", path.stem, {"reason": str(exc)}
                     )
             time.sleep(0.05)
+
+    def _retain_native_acceptance(self, receipt):
+        knowledge = retain_evidence(self.ipc, receipt)
+        package_id = receipt["package"]
+        (self.ipc / "outgoing" / f"{package_id}.awaiting").unlink(missing_ok=True)
+        self.record(
+            "REMOTE_ACCEPTANCE_KNOWN",
+            package_id,
+            {
+                "recipient": receipt["recipient"],
+                "acceptance": receipt["acceptance"],
+                "carriage": "PORTER-CARRIAGE/1",
+            },
+        )
+        ticket = ticket_for_package(self.ipc, package_id)
+        if ticket:
+            event(
+                self.ipc,
+                ticket,
+                "REMOTE_ACCEPTANCE_KNOWN",
+                {"recipient": receipt["recipient"], "acceptance": receipt["acceptance"]},
+            )
+        return knowledge
+
+    def _retain_native_refusal(self, evidence):
+        package_id = evidence["package"]
+        atomic_json(self.ipc / "refused" / f"{package_id}.json", evidence)
+        (self.ipc / "outgoing" / f"{package_id}.awaiting").unlink(missing_ok=True)
+
+    def _retain_native_ceremony(self, result):
+        retained = self.ceremonies.retain_result(result)
+        identity = result["ceremony"]
+        (self.ipc / "ceremonies" / "outgoing" / f"{identity}.awaiting").unlink(
+            missing_ok=True
+        )
+        return retained
 
     def carry_ceremony_one(self, path, fail_after=None):
         path = Path(path)
@@ -415,13 +465,16 @@ def main():
     parser.add_argument("--identity", required=True)
     parser.add_argument("--ipc", default="/ipc")
     parser.add_argument("--listen", default="0.0.0.0:7070")
-    parser.add_argument("--routes", required=True)
+    parser.add_argument("--routes", default="{}")
     parser.add_argument(
         "--experiment-crash-before-acceptance-evidence", action="store_true"
     )
     parser.add_argument("--relationships", default="{}")
     parser.add_argument("--require-introductions", action="store_true")
     parser.add_argument("--max-wire-bytes", type=int, default=262144)
+    parser.add_argument("--native-listen")
+    parser.add_argument("--native-private-key")
+    parser.add_argument("--native-rendezvous", default="{}")
     args = parser.parse_args()
     porter = Porter(
         args.identity,
@@ -430,11 +483,17 @@ def main():
         relationships=json.loads(args.relationships),
         require_introductions=args.require_introductions,
         max_wire_bytes=args.max_wire_bytes,
+        native_private_key=args.native_private_key,
+        native_rendezvous=json.loads(args.native_rendezvous),
+        native_listen=args.native_listen,
     )
     porter.crash_after_response_once = args.experiment_crash_before_acceptance_evidence
     threading.Thread(target=porter.carry, daemon=True).start()
-    host, port = args.listen.rsplit(":", 1)
-    ThreadingHTTPServer((host, int(port)), handler(porter)).serve_forever()
+    if porter.native:
+        porter.native.serve_forever()
+    else:
+        host, port = args.listen.rsplit(":", 1)
+        ThreadingHTTPServer((host, int(port)), handler(porter)).serve_forever()
 
 
 if __name__ == "__main__":

@@ -38,6 +38,14 @@ Performance work is conformant only while every statement below remains true.
 - Recipient ceremony replay and reordering cannot fork or reverse the immutable
   standing chain. The origin may claim an applied ceremony only after retaining
   its result.
+- Native carriage addresses stable Porter identities through replaceable local
+  rendezvous knowledge. Location and connection lifetime do not mutate Package,
+  Introduction, standing, acceptance or custody history.
+- A complete native frame is mutually authenticated, confidential, integrity
+  protected and bound to its sender, recipient, Unit identity and Unit class.
+- Package/Ceremony movement and evidence return are independent native Units.
+  Transport completion never establishes remote-acceptance or ceremony-result
+  knowledge; only durable returned evidence does.
 - Transport completion is not PORTER knowledge. The origin may claim remote
   acceptance only after retaining valid acceptance evidence durably.
 - Package identity remains stable through retry and recovery. Repeated evidence
@@ -58,4 +66,5 @@ Performance work is conformant only while every statement below remains true.
 
 The executable targets are `tests/conformance_1_0.sh`, `tests/security_1_1.sh`,
 `tests/security_1_2.sh` and `tests/security_1_3.sh`. Their isolated modes must
-remain green before and after every optimisation.
+remain green before and after every optimisation. Native-carriage conformance is
+`tests/security_1_4.sh`.
