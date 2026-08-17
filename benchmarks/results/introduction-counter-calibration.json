@@ -1,0 +1,110 @@
+{
+  "accepted": {
+    "cpu_ms": 683.002,
+    "operations": {
+      "fsync": 4000,
+      "opens_read": 0,
+      "opens_write": 3015,
+      "rename": 0,
+      "replace": 2015,
+      "unlink": 0
+    },
+    "resources": {
+      "bytes": 645353,
+      "files": 2004,
+      "groups": {
+        "acceptances": {
+          "bytes": 451890,
+          "files": 1000
+        },
+        "inbox": {
+          "bytes": 192890,
+          "files": 1000
+        },
+        "introductions": {
+          "bytes": 573,
+          "files": 4
+        }
+      }
+    },
+    "wall_ms": 2673.400416
+  },
+  "attempts": 1000,
+  "benchmark": "PORTER 1.1 Adversarial Lodgement",
+  "elapsed_seconds": 3.5388221740722656,
+  "process_max_rss_bytes": 29589504,
+  "refused": {
+    "cpu_ms": 4.597,
+    "growth": {
+      "bytes": 0,
+      "files": 0
+    },
+    "operations": {
+      "fsync": 0,
+      "opens_read": 0,
+      "opens_write": 0,
+      "rename": 0,
+      "replace": 0,
+      "unlink": 0
+    },
+    "resources_after": {
+      "bytes": 566,
+      "files": 3,
+      "groups": {
+        "introductions": {
+          "bytes": 566,
+          "files": 3
+        }
+      }
+    },
+    "resources_before": {
+      "bytes": 566,
+      "files": 3,
+      "groups": {
+        "introductions": {
+          "bytes": 566,
+          "files": 3
+        }
+      }
+    },
+    "wall_ms": 4.603625
+  },
+  "security_tax": {
+    "ac_creation": {
+      "median_ms": 1.359334,
+      "p95_ms": 1.645,
+      "p99_ms": 2.23925,
+      "samples": 50
+    },
+    "authorised_acceptance": {
+      "median_ms": 1.632375,
+      "p95_ms": 1.806583,
+      "p99_ms": 1.980208,
+      "samples": 50
+    },
+    "carriage_proof": {
+      "median_ms": 0.00675,
+      "p95_ms": 0.008084,
+      "p99_ms": 0.009834,
+      "samples": 50
+    },
+    "plain_acceptance": {
+      "median_ms": 1.397166,
+      "p95_ms": 1.500959,
+      "p99_ms": 1.615042,
+      "samples": 50
+    },
+    "policy_evaluation": {
+      "median_ms": 0.003584,
+      "p95_ms": 0.004333,
+      "p99_ms": 0.004709,
+      "samples": 50
+    },
+    "standing_lookup": {
+      "median_ms": 0.000333,
+      "p95_ms": 0.000584,
+      "p99_ms": 0.001791,
+      "samples": 50
+    }
+  }
+}

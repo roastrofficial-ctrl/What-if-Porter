@@ -5,6 +5,10 @@ PORTER/1 is semantically frozen. Its reproducible maturation measurements,
 in [REALITY-CHECK.md](REALITY-CHECK.md); the invariant set is in
 [CONFORMANCE.md](CONFORMANCE.md).
 
+PORTER 1.1 protects the AC threshold with recipient-local standing. The protocol
+shape is in [INTRODUCTIONS.md](INTRODUCTIONS.md), and its 10,000-attempt hostile
+experiment is reported in [SECURITY-CHECK.md](SECURITY-CHECK.md).
+
 Early packet networks briefly experimented with directly addressable
 computational hosts. The resulting security and operational failures established
 the Host Isolation Principle:

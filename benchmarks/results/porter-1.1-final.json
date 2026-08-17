@@ -1,0 +1,136 @@
+{
+  "accepted": {
+    "cpu_ms": 2863.701889,
+    "operations": {
+      "fsync": 40000,
+      "opens_read": 0,
+      "opens_write": 30156,
+      "rename": 0,
+      "replace": 20156,
+      "unlink": 0
+    },
+    "resources": {
+      "bytes": 6468355,
+      "files": 20004,
+      "groups": {
+        "acceptances": {
+          "bytes": 4528890,
+          "files": 10000
+        },
+        "inbox": {
+          "bytes": 1938890,
+          "files": 10000
+        },
+        "introductions": {
+          "bytes": 575,
+          "files": 4
+        }
+      }
+    },
+    "wall_ms": 10905.087339
+  },
+  "attempts": 10000,
+  "benchmark": "PORTER 1.1 Adversarial Lodgement",
+  "elapsed_seconds": 27.111331939697266,
+  "plain_accepted": {
+    "cpu_ms": 3068.341328,
+    "operations": {
+      "fsync": 40000,
+      "opens_read": 0,
+      "opens_write": 20000,
+      "rename": 0,
+      "replace": 20000,
+      "unlink": 0
+    },
+    "resources": {
+      "bytes": 6467780,
+      "files": 20000,
+      "groups": {
+        "acceptances": {
+          "bytes": 4528890,
+          "files": 10000
+        },
+        "inbox": {
+          "bytes": 1938890,
+          "files": 10000
+        }
+      }
+    },
+    "wall_ms": 13781.516923
+  },
+  "process_max_rss_bytes": 41988096,
+  "refused": {
+    "cpu_ms": 225.766792,
+    "growth": {
+      "bytes": 0,
+      "files": 0
+    },
+    "operations": {
+      "fsync": 0,
+      "opens_read": 0,
+      "opens_write": 0,
+      "rename": 0,
+      "replace": 0,
+      "unlink": 0
+    },
+    "resources_after": {
+      "bytes": 566,
+      "files": 3,
+      "groups": {
+        "introductions": {
+          "bytes": 566,
+          "files": 3
+        }
+      }
+    },
+    "resources_before": {
+      "bytes": 566,
+      "files": 3,
+      "groups": {
+        "introductions": {
+          "bytes": 566,
+          "files": 3
+        }
+      }
+    },
+    "wall_ms": 225.9505
+  },
+  "security_tax": {
+    "ac_creation": {
+      "median_ms": 0.878416,
+      "p95_ms": 0.995167,
+      "p99_ms": 2.20675,
+      "samples": 200
+    },
+    "authorised_acceptance": {
+      "median_ms": 1.033792,
+      "p95_ms": 1.86475,
+      "p99_ms": 5.065041,
+      "samples": 200
+    },
+    "carriage_proof": {
+      "median_ms": 0.006875,
+      "p95_ms": 0.010791,
+      "p99_ms": 0.024792,
+      "samples": 200
+    },
+    "plain_acceptance": {
+      "median_ms": 0.910959,
+      "p95_ms": 1.36475,
+      "p99_ms": 4.098167,
+      "samples": 200
+    },
+    "policy_evaluation": {
+      "median_ms": 0.003958,
+      "p95_ms": 0.005541,
+      "p99_ms": 0.01475,
+      "samples": 200
+    },
+    "standing_lookup": {
+      "median_ms": 0.000375,
+      "p95_ms": 0.000708,
+      "p99_ms": 0.001958,
+      "samples": 200
+    }
+  }
+}

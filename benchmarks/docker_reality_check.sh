@@ -5,7 +5,9 @@ root=$(pwd)
 image="porter-reality-check"
 mkdir -p "$root/benchmarks/results"
 docker build -q -t "$image" . >/dev/null
+script="/benchmarks/reality_check.py"
+if [ "${1:-}" = "--adversarial" ]; then script="/benchmarks/adversarial_lodgement.py"; shift; fi
 docker run --rm --network none --entrypoint python \
   -v "$root/benchmarks:/benchmarks:ro" \
   -v "$root/benchmarks/results:/results" \
-  "$image" /benchmarks/reality_check.py "$@"
+  "$image" "$script" "$@"

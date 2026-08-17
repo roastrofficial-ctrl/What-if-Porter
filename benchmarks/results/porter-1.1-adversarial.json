@@ -1,0 +1,110 @@
+{
+  "accepted": {
+    "cpu_ms": 4161.287906,
+    "operations": {
+      "fsync": 40000,
+      "opens_read": 0,
+      "opens_write": 30156,
+      "rename": 0,
+      "replace": 20156,
+      "unlink": 0
+    },
+    "resources": {
+      "bytes": 6468355,
+      "files": 20004,
+      "groups": {
+        "acceptances": {
+          "bytes": 4528890,
+          "files": 10000
+        },
+        "inbox": {
+          "bytes": 1938890,
+          "files": 10000
+        },
+        "introductions": {
+          "bytes": 575,
+          "files": 4
+        }
+      }
+    },
+    "wall_ms": 23418.203886
+  },
+  "attempts": 10000,
+  "benchmark": "PORTER 1.1 Adversarial Lodgement",
+  "elapsed_seconds": 25.094873666763306,
+  "process_max_rss_bytes": 41914368,
+  "refused": {
+    "cpu_ms": 81.396791,
+    "growth": {
+      "bytes": 0,
+      "files": 0
+    },
+    "operations": {
+      "fsync": 0,
+      "opens_read": 0,
+      "opens_write": 0,
+      "rename": 0,
+      "replace": 0,
+      "unlink": 0
+    },
+    "resources_after": {
+      "bytes": 566,
+      "files": 3,
+      "groups": {
+        "introductions": {
+          "bytes": 566,
+          "files": 3
+        }
+      }
+    },
+    "resources_before": {
+      "bytes": 566,
+      "files": 3,
+      "groups": {
+        "introductions": {
+          "bytes": 566,
+          "files": 3
+        }
+      }
+    },
+    "wall_ms": 81.663375
+  },
+  "security_tax": {
+    "ac_creation": {
+      "median_ms": 0.905875,
+      "p95_ms": 1.812917,
+      "p99_ms": 4.784375,
+      "samples": 200
+    },
+    "authorised_acceptance": {
+      "median_ms": 0.983834,
+      "p95_ms": 4.255167,
+      "p99_ms": 5.37325,
+      "samples": 200
+    },
+    "carriage_proof": {
+      "median_ms": 0.007084,
+      "p95_ms": 0.011,
+      "p99_ms": 0.016042,
+      "samples": 200
+    },
+    "plain_acceptance": {
+      "median_ms": 0.908709,
+      "p95_ms": 3.711333,
+      "p99_ms": 5.612084,
+      "samples": 200
+    },
+    "policy_evaluation": {
+      "median_ms": 0.004125,
+      "p95_ms": 0.005584,
+      "p99_ms": 0.0115,
+      "samples": 200
+    },
+    "standing_lookup": {
+      "median_ms": 0.000375,
+      "p95_ms": 0.000792,
+      "p99_ms": 0.001667,
+      "samples": 200
+    }
+  }
+}
