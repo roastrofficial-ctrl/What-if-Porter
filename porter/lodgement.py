@@ -145,7 +145,21 @@ def recover(ipc, fail_after: str | None = None) -> list[dict]:
     recovered = []
     for path in sorted((root / "lodgements" / "lodged").glob("LG-*.json")):
         value = json.loads(path.read_text())
-        recovered.append(materialize(root, value, fail_after))
+        ticket = value["ticket"]
+        package_id = value["package"]["package"]
+        ticket_path = root / "tickets" / f"{ticket['ticket']}.json"
+        mapping = root / "tickets" / "by-package" / package_id
+        carried = (root / "receipts" / f"{package_id}.json").exists()
+        refused = (root / "refused" / f"{package_id}.json").exists()
+        carrying = (root / "outgoing" / f"{package_id}.carrying").exists()
+        outgoing = (root / "outgoing" / f"{package_id}.json").exists()
+        complete = (
+            ticket_path.exists()
+            and mapping.exists()
+            and mapping.read_text().strip() == ticket["ticket"]
+            and (carried or refused or carrying or outgoing)
+        )
+        recovered.append(ticket if complete else materialize(root, value, fail_after))
     return recovered
 
 

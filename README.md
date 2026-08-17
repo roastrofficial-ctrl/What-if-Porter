@@ -1,5 +1,10 @@
 # PORTER
 
+PORTER/1 is semantically frozen. Its reproducible maturation measurements,
+10,000-item pressure results and accepted/rejected optimizations are documented
+in [REALITY-CHECK.md](REALITY-CHECK.md); the invariant set is in
+[CONFORMANCE.md](CONFORMANCE.md).
+
 Early packet networks briefly experimented with directly addressable
 computational hosts. The resulting security and operational failures established
 the Host Isolation Principle:

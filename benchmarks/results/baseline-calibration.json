@@ -1,0 +1,401 @@
+{
+  "benchmark": "PORTER 1.0 Reality Check",
+  "carriage": {
+    "attempt_and_local_evidence": {
+      "median_ms": 47.737874,
+      "p95_ms": 62.122291,
+      "p99_ms": 67.438333,
+      "samples": 100
+    },
+    "origin_resources": {
+      "bytes": 250590,
+      "files": 701,
+      "groups": {
+        "carriage": {
+          "bytes": 62700,
+          "files": 100
+        },
+        "lodgements": {
+          "bytes": 73690,
+          "files": 200
+        },
+        "porter-events.jsonl": {
+          "bytes": 21200,
+          "files": 1
+        },
+        "receipts": {
+          "bytes": 38100,
+          "files": 100
+        },
+        "tickets": {
+          "bytes": 54900,
+          "files": 300
+        }
+      }
+    },
+    "recipient_resources": {
+      "bytes": 90780,
+      "files": 201,
+      "groups": {
+        "acceptances": {
+          "bytes": 46890,
+          "files": 100
+        },
+        "inbox": {
+          "bytes": 21090,
+          "files": 100
+        },
+        "porter-events.jsonl": {
+          "bytes": 22800,
+          "files": 1
+        }
+      }
+    },
+    "remote_acceptance": {
+      "median_ms": 12.202375,
+      "p95_ms": 23.981083,
+      "p99_ms": 31.424166,
+      "samples": 100
+    },
+    "total": {
+      "median_ms": 58.813834,
+      "p95_ms": 82.425583,
+      "p99_ms": 92.896916,
+      "samples": 100
+    }
+  },
+  "collection": {
+    "latency": {
+      "median_ms": 47.220042,
+      "p95_ms": 69.785375,
+      "p99_ms": 91.834542,
+      "samples": 100
+    },
+    "resources": {
+      "bytes": 137170,
+      "files": 501,
+      "groups": {
+        "acceptances": {
+          "bytes": 44890,
+          "files": 100
+        },
+        "collected": {
+          "bytes": 19090,
+          "files": 100
+        },
+        "collections": {
+          "bytes": 50390,
+          "files": 300
+        },
+        "porter-events.jsonl": {
+          "bytes": 22800,
+          "files": 1
+        }
+      }
+    }
+  },
+  "concurrency": {
+    "cpu_ms": 98.761,
+    "latency": {
+      "median_ms": 10.633875,
+      "p95_ms": 11.569875,
+      "p99_ms": 12.598292,
+      "samples": 96
+    },
+    "lodgements": 100,
+    "resources": {
+      "bytes": 127084,
+      "files": 480,
+      "groups": {
+        "lodgements": {
+          "bytes": 69398,
+          "files": 192
+        },
+        "outgoing": {
+          "bytes": 18902,
+          "files": 96
+        },
+        "tickets": {
+          "bytes": 38784,
+          "files": 192
+        }
+      }
+    },
+    "throughput_per_second": 774.2330052990674,
+    "wall_ms": 129.160084,
+    "workers": 8
+  },
+  "configuration": {
+    "samples": 100,
+    "scales": [
+      1,
+      10,
+      100,
+      1000
+    ]
+  },
+  "dormancy": [
+    {
+      "bytes": 875,
+      "bytes_per_package": 875.0,
+      "cpu_ms": 0.853,
+      "files": 3,
+      "groups": {
+        "acceptances": {
+          "bytes": 451,
+          "files": 1
+        },
+        "inbox": {
+          "bytes": 193,
+          "files": 1
+        },
+        "porter-events.jsonl": {
+          "bytes": 231,
+          "files": 1
+        }
+      },
+      "held": 1,
+      "per_package_ms": 2.423792,
+      "wall_ms": 2.423792
+    },
+    {
+      "bytes": 8750,
+      "bytes_per_package": 875.0,
+      "cpu_ms": 5.726,
+      "files": 21,
+      "groups": {
+        "acceptances": {
+          "bytes": 4510,
+          "files": 10
+        },
+        "inbox": {
+          "bytes": 1930,
+          "files": 10
+        },
+        "porter-events.jsonl": {
+          "bytes": 2310,
+          "files": 1
+        }
+      },
+      "held": 10,
+      "per_package_ms": 2.8729041,
+      "wall_ms": 28.729041
+    },
+    {
+      "bytes": 87680,
+      "bytes_per_package": 876.8,
+      "cpu_ms": 163.82,
+      "files": 201,
+      "groups": {
+        "acceptances": {
+          "bytes": 45190,
+          "files": 100
+        },
+        "inbox": {
+          "bytes": 19390,
+          "files": 100
+        },
+        "porter-events.jsonl": {
+          "bytes": 23100,
+          "files": 1
+        }
+      },
+      "held": 100,
+      "per_package_ms": 7.49550125,
+      "wall_ms": 749.550125
+    },
+    {
+      "bytes": 878780,
+      "bytes_per_package": 878.78,
+      "cpu_ms": 3912.4,
+      "files": 2001,
+      "groups": {
+        "acceptances": {
+          "bytes": 452890,
+          "files": 1000
+        },
+        "inbox": {
+          "bytes": 194890,
+          "files": 1000
+        },
+        "porter-events.jsonl": {
+          "bytes": 231000,
+          "files": 1
+        }
+      },
+      "held": 1000,
+      "per_package_ms": 17.706819,
+      "wall_ms": 17706.819
+    }
+  ],
+  "elapsed_seconds": 117.44709467887878,
+  "lodgement": {
+    "latency": {
+      "median_ms": 15.324875,
+      "p95_ms": 21.080584,
+      "p99_ms": 23.608708,
+      "samples": 100
+    },
+    "resources": {
+      "bytes": 135180,
+      "files": 500,
+      "groups": {
+        "lodgements": {
+          "bytes": 73690,
+          "files": 200
+        },
+        "outgoing": {
+          "bytes": 21090,
+          "files": 100
+        },
+        "tickets": {
+          "bytes": 40400,
+          "files": 200
+        }
+      }
+    }
+  },
+  "process_max_rss_kib": 34340864,
+  "profile": "baseline-calibration",
+  "recovery": [
+    {
+      "facts": 1,
+      "healthy_per_fact_ms": 3.1935,
+      "healthy_restart_wall_ms": 3.1935,
+      "rebuild_per_fact_ms": 6.0305,
+      "rebuild_wall_ms": 6.0305,
+      "resources": {
+        "bytes": 1350,
+        "files": 5,
+        "groups": {
+          "lodgements": {
+            "bytes": 736,
+            "files": 2
+          },
+          "outgoing": {
+            "bytes": 210,
+            "files": 1
+          },
+          "tickets": {
+            "bytes": 404,
+            "files": 2
+          }
+        }
+      }
+    },
+    {
+      "facts": 10,
+      "healthy_per_fact_ms": 1.6517042,
+      "healthy_restart_wall_ms": 16.517042,
+      "rebuild_per_fact_ms": 4.8089125,
+      "rebuild_wall_ms": 48.089125,
+      "resources": {
+        "bytes": 13500,
+        "files": 50,
+        "groups": {
+          "lodgements": {
+            "bytes": 7360,
+            "files": 20
+          },
+          "outgoing": {
+            "bytes": 2100,
+            "files": 10
+          },
+          "tickets": {
+            "bytes": 4040,
+            "files": 20
+          }
+        }
+      }
+    },
+    {
+      "facts": 100,
+      "healthy_per_fact_ms": 7.49973167,
+      "healthy_restart_wall_ms": 749.973167,
+      "rebuild_per_fact_ms": 11.90104125,
+      "rebuild_wall_ms": 1190.104125,
+      "resources": {
+        "bytes": 135180,
+        "files": 500,
+        "groups": {
+          "lodgements": {
+            "bytes": 73690,
+            "files": 200
+          },
+          "outgoing": {
+            "bytes": 21090,
+            "files": 100
+          },
+          "tickets": {
+            "bytes": 40400,
+            "files": 200
+          }
+        }
+      }
+    },
+    {
+      "facts": 1000,
+      "healthy_per_fact_ms": 8.375293542,
+      "healthy_restart_wall_ms": 8375.293542,
+      "rebuild_per_fact_ms": 19.779413666,
+      "rebuild_wall_ms": 19779.413666,
+      "resources": {
+        "bytes": 1353780,
+        "files": 5000,
+        "groups": {
+          "lodgements": {
+            "bytes": 737890,
+            "files": 2000
+          },
+          "outgoing": {
+            "bytes": 211890,
+            "files": 1000
+          },
+          "tickets": {
+            "bytes": 404000,
+            "files": 2000
+          }
+        }
+      }
+    }
+  ],
+  "rounds": [
+    {
+      "bytes_growth": 562,
+      "cpu_ms": 1.131,
+      "files_written_or_grown": 2,
+      "journal_bytes": 410,
+      "per_ticket_us": 5160.292,
+      "tickets": 1,
+      "wall_ms": 5.160292
+    },
+    {
+      "bytes_growth": 3937,
+      "cpu_ms": 6.084,
+      "files_written_or_grown": 11,
+      "journal_bytes": 2417,
+      "per_ticket_us": 4272.25,
+      "tickets": 10,
+      "wall_ms": 42.7225
+    },
+    {
+      "bytes_growth": 37687,
+      "cpu_ms": 309.904,
+      "files_written_or_grown": 101,
+      "journal_bytes": 22487,
+      "per_ticket_us": 11967.86833,
+      "tickets": 100,
+      "wall_ms": 1196.786833
+    },
+    {
+      "bytes_growth": 375187,
+      "cpu_ms": 3544.993,
+      "files_written_or_grown": 1001,
+      "journal_bytes": 223187,
+      "per_ticket_us": 14855.190292,
+      "tickets": 1000,
+      "wall_ms": 14855.190292
+    }
+  ],
+  "started_unix": 1786960083.6154602
+}

@@ -1,0 +1,54 @@
+{
+  "benchmark": "PORTER 1.0 Reality Check",
+  "configuration": {
+    "samples": 100,
+    "scales": [
+      1,
+      10,
+      100,
+      1000
+    ]
+  },
+  "elapsed_seconds": 23.85188603401184,
+  "process_max_rss_kib": 35454976,
+  "profile": "optimisation-round-journal",
+  "rounds": [
+    {
+      "bytes_growth": 410,
+      "cpu_ms": 1.657,
+      "files_written_or_grown": 2,
+      "journal_bytes": 410,
+      "per_ticket_us": 13477.041,
+      "tickets": 1,
+      "wall_ms": 13.477041
+    },
+    {
+      "bytes_growth": 2417,
+      "cpu_ms": 12.642,
+      "files_written_or_grown": 11,
+      "journal_bytes": 2417,
+      "per_ticket_us": 6994.85,
+      "tickets": 10,
+      "wall_ms": 69.9485
+    },
+    {
+      "bytes_growth": 22487,
+      "cpu_ms": 173.979,
+      "files_written_or_grown": 101,
+      "journal_bytes": 22487,
+      "per_ticket_us": 8011.36875,
+      "tickets": 100,
+      "wall_ms": 801.136875
+    },
+    {
+      "bytes_growth": 223187,
+      "cpu_ms": 1618.974,
+      "files_written_or_grown": 1001,
+      "journal_bytes": 223187,
+      "per_ticket_us": 7756.324541,
+      "tickets": 1000,
+      "wall_ms": 7756.324541
+    }
+  ],
+  "started_unix": 1786960516.604531
+}

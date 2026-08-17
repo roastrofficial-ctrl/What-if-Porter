@@ -1,0 +1,118 @@
+{
+  "benchmark": "PORTER 1.0 Reality Check",
+  "configuration": {
+    "samples": 100,
+    "scales": [
+      1,
+      10,
+      100,
+      1000
+    ]
+  },
+  "elapsed_seconds": 47.471081018447876,
+  "process_max_rss_kib": 31703040,
+  "profile": "optimisation-healthy-fast-path",
+  "recovery": [
+    {
+      "facts": 1,
+      "healthy_per_fact_ms": 6.383833,
+      "healthy_restart_wall_ms": 6.383833,
+      "rebuild_per_fact_ms": 12.841459,
+      "rebuild_wall_ms": 12.841459,
+      "resources": {
+        "bytes": 1350,
+        "files": 5,
+        "groups": {
+          "lodgements": {
+            "bytes": 736,
+            "files": 2
+          },
+          "outgoing": {
+            "bytes": 210,
+            "files": 1
+          },
+          "tickets": {
+            "bytes": 404,
+            "files": 2
+          }
+        }
+      }
+    },
+    {
+      "facts": 10,
+      "healthy_per_fact_ms": 5.4855666,
+      "healthy_restart_wall_ms": 54.855666,
+      "rebuild_per_fact_ms": 18.3136959,
+      "rebuild_wall_ms": 183.136959,
+      "resources": {
+        "bytes": 13500,
+        "files": 50,
+        "groups": {
+          "lodgements": {
+            "bytes": 7360,
+            "files": 20
+          },
+          "outgoing": {
+            "bytes": 2100,
+            "files": 10
+          },
+          "tickets": {
+            "bytes": 4040,
+            "files": 20
+          }
+        }
+      }
+    },
+    {
+      "facts": 100,
+      "healthy_per_fact_ms": 5.646840839999999,
+      "healthy_restart_wall_ms": 564.684084,
+      "rebuild_per_fact_ms": 10.1928525,
+      "rebuild_wall_ms": 1019.28525,
+      "resources": {
+        "bytes": 135180,
+        "files": 500,
+        "groups": {
+          "lodgements": {
+            "bytes": 73690,
+            "files": 200
+          },
+          "outgoing": {
+            "bytes": 21090,
+            "files": 100
+          },
+          "tickets": {
+            "bytes": 40400,
+            "files": 200
+          }
+        }
+      }
+    },
+    {
+      "facts": 1000,
+      "healthy_per_fact_ms": 5.7749324589999995,
+      "healthy_restart_wall_ms": 5774.932459,
+      "rebuild_per_fact_ms": 19.335775249999998,
+      "rebuild_wall_ms": 19335.77525,
+      "resources": {
+        "bytes": 1353780,
+        "files": 5000,
+        "groups": {
+          "lodgements": {
+            "bytes": 737890,
+            "files": 2000
+          },
+          "outgoing": {
+            "bytes": 211890,
+            "files": 1000
+          },
+          "tickets": {
+            "bytes": 404000,
+            "files": 2000
+          }
+        }
+      }
+    }
+  ],
+  "started_unix": 1786960641.2080388
+}

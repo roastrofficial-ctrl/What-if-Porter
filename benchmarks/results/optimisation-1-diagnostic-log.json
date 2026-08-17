@@ -1,0 +1,174 @@
+{
+  "benchmark": "PORTER 1.0 Reality Check",
+  "carriage": {
+    "attempt_and_local_evidence": {
+      "median_ms": 48.893834,
+      "p95_ms": 63.781083,
+      "p99_ms": 67.893917,
+      "samples": 100
+    },
+    "origin_resources": {
+      "bytes": 250590,
+      "files": 701,
+      "groups": {
+        "carriage": {
+          "bytes": 62700,
+          "files": 100
+        },
+        "lodgements": {
+          "bytes": 73690,
+          "files": 200
+        },
+        "porter-events.jsonl": {
+          "bytes": 21200,
+          "files": 1
+        },
+        "receipts": {
+          "bytes": 38100,
+          "files": 100
+        },
+        "tickets": {
+          "bytes": 54900,
+          "files": 300
+        }
+      }
+    },
+    "recipient_resources": {
+      "bytes": 90780,
+      "files": 201,
+      "groups": {
+        "acceptances": {
+          "bytes": 46890,
+          "files": 100
+        },
+        "inbox": {
+          "bytes": 21090,
+          "files": 100
+        },
+        "porter-events.jsonl": {
+          "bytes": 22800,
+          "files": 1
+        }
+      }
+    },
+    "remote_acceptance": {
+      "median_ms": 12.533291,
+      "p95_ms": 23.134167,
+      "p99_ms": 34.322958,
+      "samples": 100
+    },
+    "total": {
+      "median_ms": 62.19875,
+      "p95_ms": 82.8175,
+      "p99_ms": 86.30575,
+      "samples": 100
+    }
+  },
+  "configuration": {
+    "samples": 100,
+    "scales": [
+      1,
+      10,
+      100,
+      1000
+    ]
+  },
+  "dormancy": [
+    {
+      "bytes": 875,
+      "bytes_per_package": 875.0,
+      "cpu_ms": 0.859,
+      "files": 3,
+      "groups": {
+        "acceptances": {
+          "bytes": 451,
+          "files": 1
+        },
+        "inbox": {
+          "bytes": 193,
+          "files": 1
+        },
+        "porter-events.jsonl": {
+          "bytes": 231,
+          "files": 1
+        }
+      },
+      "held": 1,
+      "per_package_ms": 2.521916,
+      "wall_ms": 2.521916
+    },
+    {
+      "bytes": 8750,
+      "bytes_per_package": 875.0,
+      "cpu_ms": 5.848,
+      "files": 21,
+      "groups": {
+        "acceptances": {
+          "bytes": 4510,
+          "files": 10
+        },
+        "inbox": {
+          "bytes": 1930,
+          "files": 10
+        },
+        "porter-events.jsonl": {
+          "bytes": 2310,
+          "files": 1
+        }
+      },
+      "held": 10,
+      "per_package_ms": 3.5985416,
+      "wall_ms": 35.985416
+    },
+    {
+      "bytes": 87680,
+      "bytes_per_package": 876.8,
+      "cpu_ms": 193.805,
+      "files": 201,
+      "groups": {
+        "acceptances": {
+          "bytes": 45190,
+          "files": 100
+        },
+        "inbox": {
+          "bytes": 19390,
+          "files": 100
+        },
+        "porter-events.jsonl": {
+          "bytes": 23100,
+          "files": 1
+        }
+      },
+      "held": 100,
+      "per_package_ms": 8.01343208,
+      "wall_ms": 801.343208
+    },
+    {
+      "bytes": 878780,
+      "bytes_per_package": 878.78,
+      "cpu_ms": 3922.831,
+      "files": 2001,
+      "groups": {
+        "acceptances": {
+          "bytes": 452890,
+          "files": 1000
+        },
+        "inbox": {
+          "bytes": 194890,
+          "files": 1000
+        },
+        "porter-events.jsonl": {
+          "bytes": 231000,
+          "files": 1
+        }
+      },
+      "held": 1000,
+      "per_package_ms": 17.299839166,
+      "wall_ms": 17299.839166
+    }
+  ],
+  "elapsed_seconds": 27.36498188972473,
+  "process_max_rss_kib": 32391168,
+  "profile": "optimisation-1-diagnostic-log",
+  "started_unix": 1786960411.031372
+}

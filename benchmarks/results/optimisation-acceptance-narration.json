@@ -1,0 +1,124 @@
+{
+  "benchmark": "PORTER 1.0 Reality Check",
+  "configuration": {
+    "samples": 100,
+    "scales": [
+      1,
+      10,
+      100,
+      1000,
+      10000
+    ]
+  },
+  "dormancy": [
+    {
+      "bytes": 644,
+      "bytes_per_package": 644.0,
+      "cpu_ms": 0.944209,
+      "files": 2,
+      "groups": {
+        "acceptances": {
+          "bytes": 451,
+          "files": 1
+        },
+        "inbox": {
+          "bytes": 193,
+          "files": 1
+        }
+      },
+      "held": 1,
+      "per_package_ms": 2.686709,
+      "wall_ms": 2.686709
+    },
+    {
+      "bytes": 6440,
+      "bytes_per_package": 644.0,
+      "cpu_ms": 5.351707,
+      "files": 20,
+      "groups": {
+        "acceptances": {
+          "bytes": 4510,
+          "files": 10
+        },
+        "inbox": {
+          "bytes": 1930,
+          "files": 10
+        }
+      },
+      "held": 10,
+      "per_package_ms": 2.2917750000000003,
+      "wall_ms": 22.91775
+    },
+    {
+      "bytes": 64580,
+      "bytes_per_package": 645.8,
+      "cpu_ms": 34.379242,
+      "files": 200,
+      "groups": {
+        "acceptances": {
+          "bytes": 45190,
+          "files": 100
+        },
+        "inbox": {
+          "bytes": 19390,
+          "files": 100
+        }
+      },
+      "held": 100,
+      "per_package_ms": 1.41518791,
+      "wall_ms": 141.518791
+    },
+    {
+      "bytes": 647780,
+      "bytes_per_package": 647.78,
+      "cpu_ms": 227.167813,
+      "files": 2000,
+      "groups": {
+        "acceptances": {
+          "bytes": 452890,
+          "files": 1000
+        },
+        "inbox": {
+          "bytes": 194890,
+          "files": 1000
+        }
+      },
+      "held": 1000,
+      "per_package_ms": 1.007230542,
+      "wall_ms": 1007.230542
+    },
+    {
+      "bytes": 6497780,
+      "bytes_per_package": 649.778,
+      "cpu_ms": 2385.134086,
+      "files": 20000,
+      "groups": {
+        "acceptances": {
+          "bytes": 4538890,
+          "files": 10000
+        },
+        "inbox": {
+          "bytes": 1958890,
+          "files": 10000
+        }
+      },
+      "held": 10000,
+      "per_package_ms": 0.9830845337,
+      "wall_ms": 9830.845337
+    }
+  ],
+  "elapsed_seconds": 11.740193605422974,
+  "filesystem_operations": {
+    "dormancy": {
+      "fsync": 44444,
+      "opens_read": 0,
+      "opens_write": 22222,
+      "rename": 0,
+      "replace": 22222,
+      "unlink": 22223
+    }
+  },
+  "process_max_rss_bytes": 42094592,
+  "profile": "optimisation-acceptance-narration",
+  "started_unix": 1786961056.2794495
+}

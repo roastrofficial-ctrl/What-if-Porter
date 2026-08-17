@@ -41,7 +41,12 @@ class Porter:
         if value["expires"] <= int(time.time()): raise ValueError("Package expired before deposit")
         acceptance, repeated = accept(self.ipc, self.identity, value)
         if fail_after == "acceptance": raise RuntimeError("interrupted after durable remote acceptance")
-        self.record("PACKAGE_ACCEPTED_AGAIN" if repeated else "PACKAGE_DURABLY_ACCEPTED",value["package"],{"from":value["from"],"kind":value["kind"],"acceptance":acceptance["acceptance"]})
+        # AC is already the immutable account of first acceptance. Repeating
+        # that fact in an unbounded diagnostic journal consumed a quarter of
+        # dormant-custody storage without adding knowledge. A repeated arrival
+        # remains useful operational narration because it explains a retry.
+        if repeated:
+            self.record("PACKAGE_ACCEPTED_AGAIN",value["package"],{"from":value["from"],"kind":value["kind"],"acceptance":acceptance["acceptance"]})
         if value.get("in_reply_to"):
             ticket=ticket_for_package(self.ipc,value["in_reply_to"])
             if ticket:event(self.ipc,ticket,"RETURN_HELD",{"return":value["package"]})

@@ -42,7 +42,10 @@ def make_round(ipc, ticket_ids: list[str], initiated_by: str = "HOST") -> dict:
     if not ticket_ids:
         raise ValueError("a PORTER Round requires at least one Collection Ticket")
     began_at = now_ms()
-    snapshots = [inspect(ipc, ticket_id) for ticket_id in ticket_ids]
+    # The Round journal is the durable record of this observation. Rewriting
+    # every mutable Ticket with the same TICKET_INSPECTED narration duplicates
+    # that fact N times and makes observation scale with unrelated history.
+    snapshots = [inspect(ipc, ticket_id, record=False) for ticket_id in ticket_ids]
     observed_at = now_ms()
     round_id = f"RD-{uuid.uuid4().hex}"
     value = {
