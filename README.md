@@ -9,6 +9,11 @@ PORTER 1.1 protects the AC threshold with recipient-local standing. The protocol
 shape is in [INTRODUCTIONS.md](INTRODUCTIONS.md), and its 10,000-attempt hostile
 experiment is reported in [SECURITY-CHECK.md](SECURITY-CHECK.md).
 
+PORTER 1.2 makes that standing succeedable without rewriting history. The model
+is specified in [STANDING-SUCCESSION.md](STANDING-SUCCESSION.md), and the stolen
+capability, race, crash, budget and real Butterfly results are in
+[COMPROMISE-CHECK.md](COMPROMISE-CHECK.md).
+
 Early packet networks briefly experimented with directly addressable
 computational hosts. The resulting security and operational failures established
 the Host Isolation Principle:

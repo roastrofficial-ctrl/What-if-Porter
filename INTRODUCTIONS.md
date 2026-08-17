@@ -21,8 +21,8 @@ provider absence.
 
 The experiment uses HMAC-SHA256 carriage capabilities. This is explicit
 scaffolding: it proves that standing plus Package-bound possession prevents
-identity-string spoofing, but it does not solve secret introduction, rotation,
-theft or federation.
+identity-string spoofing. PORTER 1.2 adds local standing succession after theft;
+secure capability delivery and federation remain unsolved.
 
 ## Admission ordering
 
@@ -71,4 +71,3 @@ recorded rather than silently homogenized.
   --attempts 10000 --samples 200 --quiet \
   --output /results/porter-1.1-final.json
 ```
-

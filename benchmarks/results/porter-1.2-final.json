@@ -1,0 +1,97 @@
+{
+  "attempts": 10000,
+  "benchmark": "PORTER 1.2 Capability Compromise",
+  "blast_radius": {
+    "allowance": 50,
+    "attacker_accepted": 50,
+    "legitimate_after_exhaustion": "REFUSE",
+    "resources": {
+      "bytes": 32696,
+      "files": 104,
+      "groups": {
+        "acceptances": {
+          "bytes": 22540,
+          "files": 50
+        },
+        "inbox": {
+          "bytes": 9590,
+          "files": 50
+        },
+        "introductions": {
+          "bytes": 566,
+          "files": 4
+        }
+      }
+    }
+  },
+  "compromised_refusal": {
+    "cpu_ms": 335.340998,
+    "growth": {
+      "bytes": 0,
+      "files": 0
+    },
+    "operations": {
+      "fsync": 0,
+      "opens_read": 0,
+      "opens_write": 0,
+      "rename": 0,
+      "replace": 0,
+      "unlink": 0
+    },
+    "wall_ms": 335.395625
+  },
+  "current_acceptance": {
+    "cpu_ms": 3615.265667,
+    "growth": {
+      "bytes": 6467789,
+      "files": 20000
+    },
+    "operations": {
+      "fsync": 40000,
+      "opens_read": 0,
+      "opens_write": 30156,
+      "rename": 0,
+      "replace": 20156,
+      "unlink": 0
+    },
+    "wall_ms": 11878.182005
+  },
+  "elapsed_seconds": 13.470609426498413,
+  "process_max_rss_bytes": 42049536,
+  "standing_change": {
+    "growth": {
+      "bytes": 76890,
+      "files": 301
+    },
+    "latency": {
+      "median_ms": 1.07475,
+      "p95_ms": 1.369625,
+      "p99_ms": 2.18775,
+      "samples": 100
+    },
+    "operations": {
+      "fsync": 400,
+      "opens_read": 0,
+      "opens_write": 500,
+      "rename": 0,
+      "replace": 400,
+      "unlink": 0
+    }
+  },
+  "unknown_refusal": {
+    "cpu_ms": 265.168081,
+    "growth": {
+      "bytes": 0,
+      "files": 0
+    },
+    "operations": {
+      "fsync": 0,
+      "opens_read": 0,
+      "opens_write": 0,
+      "rename": 0,
+      "replace": 0,
+      "unlink": 0
+    },
+    "wall_ms": 265.3565
+  }
+}

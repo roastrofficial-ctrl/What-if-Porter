@@ -24,6 +24,10 @@ class AdmissionRefused(ValueError):
         self.private_reason = private_reason or public_reason
 
 
+class StandingChangeInterrupted(RuntimeError):
+    pass
+
+
 def canonical(value: dict) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
@@ -64,10 +68,10 @@ def relationship_id(recipient: str, sender: str) -> str:
     return f"IN-{digest}"
 
 
-def relationship_fact(recipient: str, sender: str, terms: dict, authority: str, established_at: int | None = None) -> dict:
+def relationship_fact(recipient: str, sender: str, terms: dict, authority: str, established_at: int | None = None, introduction: str | None = None) -> dict:
     return {
         "vocabulary": VOCABULARY,
-        "introduction": relationship_id(recipient, sender),
+        "introduction": introduction or relationship_id(recipient, sender),
         "recipient": recipient,
         "sender": sender,
         "authority": authority,
@@ -83,13 +87,13 @@ def relationship_fact(recipient: str, sender: str, terms: dict, authority: str, 
     }
 
 
-def establish(root: Path, recipient: str, sender: str, secret: str, terms: dict, authority: str = "LOCAL_POLICY") -> dict:
+def establish(root: Path, recipient: str, sender: str, secret: str, terms: dict, authority: str = "LOCAL_POLICY", introduction: str | None = None) -> dict:
     """Publish standing only after an authority adapter has verified identity.
 
     The adapter is intentionally outside this function. It supplies a normalized
     sender claim; PORTER chooses and persists the responsibility terms.
     """
-    fact = relationship_fact(recipient, sender, terms, authority)
+    fact = relationship_fact(recipient, sender, terms, authority, introduction=introduction)
     target = root / "introductions" / "facts" / f"{fact['introduction']}.json"
     if target.exists():
         existing = json.loads(target.read_text())
@@ -142,15 +146,37 @@ class Admission:
     def __init__(self, root: Path, recipient: str, relationships: dict, required: bool = False):
         self.root, self.recipient, self.required = Path(root), recipient, required
         self.now=time.time
-        self.relationships = relationships
-        self.facts = {}
+        self.relationships = dict(relationships)
         for sender, config in relationships.items():
-            self.facts[sender] = establish(self.root, recipient, sender, config["secret"], config, config.get("authority", "LOCAL_POLICY"))
+            establish(self.root, recipient, sender, config["secret"], config, config.get("authority", "LOCAL_POLICY"))
         self.recover()
 
     def recover(self) -> None:
-        """Rebuild budget projections from immutable AC and CL after restart."""
-        current: dict[str, dict] = {sender: {"count": 0, "bytes": 0, "admissions_since_projection": 0} for sender in self.relationships}
+        """Rebuild current standing and relationship budgets from immutable facts."""
+        facts={}
+        for path in (self.root/"introductions"/"facts").glob("IN-*.json"):
+            value=json.loads(path.read_text());facts[value["introduction"]]=value
+        changes={}
+        for path in (self.root/"introductions"/"changes").glob("IN-*.json"):
+            value=json.loads(path.read_text())
+            if value["predecessor"] in changes:raise ValueError("standing history forks at one predecessor")
+            changes[value["predecessor"]]=value
+        self.facts=facts;self.active={};self.secrets={}
+        by_sender={}
+        for fact in facts.values():by_sender.setdefault(fact["sender"],[]).append(fact)
+        for sender, candidates in by_sender.items():
+            origin=facts.get(relationship_id(self.recipient,sender))
+            if not origin:origin=min(candidates,key=lambda fact:(fact["established_at_ms"],fact["introduction"]))
+            current=origin
+            while current and current["introduction"] in changes:
+                successor=changes[current["introduction"]].get("successor")
+                current=facts.get(successor) if successor else None
+            if current:self.active[sender]=current
+        for introduction in facts:
+            path=self.root/"introductions"/"secrets"/introduction
+            if path.exists():self.secrets[introduction]=path.read_text().strip()
+        senders=set(by_sender)|set(self.relationships)
+        current: dict[str, dict] = {sender: {"count": 0, "bytes": 0, "admissions_since_projection": 0} for sender in senders}
         collected = {path.name for path in (self.root / "collections" / "by-package").glob("PKG-*")}
         for path in (self.root / "acceptances").glob("PKG-*.json"):
             value = json.loads(path.read_text()); package = value["package"]; sender = package["from"]
@@ -160,8 +186,13 @@ class Admission:
         for sender, value in current.items(): self._write_current(sender, value)
 
     def _fact(self, sender: str) -> dict:
-        if sender not in self.facts: raise AdmissionRefused(private_reason="UNKNOWN_CORRESPONDENT")
-        return self.facts[sender]
+        if sender not in self.active: raise AdmissionRefused(private_reason="UNKNOWN_CORRESPONDENT")
+        return self.active[sender]
+
+    def _refresh_if_changed(self, sender: str) -> None:
+        """Notice a standing threshold published by another local Porter process."""
+        current=self.active.get(sender)
+        if current and (self.root/"introductions"/"changes"/f"{current['introduction']}.json").exists():self.recover()
 
     def _current_path(self, sender: str) -> Path:
         return self.root / "introductions" / "current" / f"{relationship_id(self.recipient, sender)}.json"
@@ -177,6 +208,59 @@ class Admission:
                 current["count"]+=1;current["bytes"]+=package_bytes(package)
         self.current[sender]=current;self._write_current(sender,current);return current
 
+    def prepare(self,sender: str,secret: str,terms: dict,authority: str="LOCAL_POLICY") -> dict:
+        """Publish replacement standing as an inert candidate."""
+        return establish(self.root,self.recipient,sender,secret,terms,authority,introduction=f"IN-{uuid.uuid4().hex}")
+
+    def change(self, sender: str, secret: str | None, terms: dict | None, reason: str,
+               authority: str = "LOCAL_POLICY", fail_after: str | None = None,
+               successor_introduction: str | None = None) -> dict:
+        """Atomically change which immutable Introduction may create new AC.
+
+        Publishing SC is the sole threshold. A successor IN may exist before it
+        as a candidate, but cannot authorize correspondence until SC exists.
+        """
+        with relationship_lock(self.root,relationship_id(self.recipient,sender)):
+            self._refresh_if_changed(sender)
+            predecessor=self.active.get(sender)
+            if not predecessor:raise ValueError("no current standing to change")
+            successor=None
+            if terms is not None:
+                if successor_introduction:
+                    path=self.root/"introductions"/"facts"/f"{successor_introduction}.json"
+                    if not path.exists():raise ValueError("unknown successor Introduction")
+                    successor=json.loads(path.read_text())
+                    if successor["sender"]!=sender or successor["recipient"]!=self.recipient:raise ValueError("successor belongs to another relationship")
+                    if successor["terms"]!=relationship_fact(self.recipient,sender,terms,authority)["terms"]:raise ValueError("successor terms disagree with change ceremony")
+                    secret_path=self.root/"introductions"/"secrets"/successor_introduction
+                    if not secret_path.exists() or secret_path.read_text().strip()!=(secret or ""):raise ValueError("successor possession material disagrees")
+                else:successor=self.prepare(sender,secret or "",terms,authority)
+            if fail_after=="successor":raise StandingChangeInterrupted("interrupted after replacement Introduction")
+            value={"vocabulary":"PORTER-STANDING/1","change":f"SC-{uuid.uuid4().hex}","recipient":self.recipient,"sender":sender,
+                   "predecessor":predecessor["introduction"],"successor":successor and successor["introduction"],
+                   "reason":reason,"changed_at_ms":int(self.now()*1000),"attests":"RECIPIENT_PORTER_CHANGED_CURRENT_CORRESPONDENCE_STANDING"}
+            # The predecessor names the unique transition slot. Besides making
+            # forks impossible, this lets another local Porter process notice
+            # the threshold in one bounded lookup.
+            change_path=self.root/"introductions"/"changes"/f"{predecessor['introduction']}.json"
+            if change_path.exists():raise ValueError("standing history forks at one predecessor")
+            atomic_json(change_path,value)
+            if fail_after=="change":raise StandingChangeInterrupted("interrupted after standing-change threshold")
+            self.facts.update({successor["introduction"]:successor} if successor else {})
+            if successor:
+                self.active[sender]=successor;self.secrets[successor["introduction"]]=secret or ""
+            else:self.active.pop(sender,None)
+            self._write_current(sender,self.current[sender])
+            if fail_after=="projection":raise StandingChangeInterrupted("interrupted after current-standing recovery")
+            return value
+
+    def change_from_claim(self,sender: str,evidence: dict,verifier,secret: str | None,terms: dict | None,reason: str,fail_after: str | None=None) -> dict:
+        if not isinstance(evidence,dict) or len(canonical(evidence))>MAX_AUTHORITY_EVIDENCE_BYTES:raise AdmissionRefused(private_reason="AUTHORITY_EVIDENCE_INVALID")
+        try:claim=verifier(evidence)
+        except Exception as exc:raise AdmissionRefused(private_reason="AUTHORITY_UNAVAILABLE") from exc
+        if claim.get("subject")!=sender or not isinstance(claim.get("issuer"),str):raise AdmissionRefused(private_reason="AUTHORITY_EVIDENCE_INVALID")
+        return self.change(sender,secret,terms,reason,claim["issuer"],fail_after)
+
     @contextmanager
     def authorize(self, value: dict, evidence: dict | None):
         """Hold the relationship lock across AC and projection accounting."""
@@ -186,18 +270,23 @@ class Admission:
             existing=json.loads(acceptance_path.read_text())
             if existing["package_digest"]!=package_digest(value):raise ValueError("Package identity names different correspondence")
             yield {"introduction":None,"size":package_bytes(value),"repeated":True};return
-        if not self.required and value["from"] not in self.relationships:
+        if not self.required and value["from"] not in self.active:
             yield None; return
         sender = value["from"]
-        config = self.relationships.get(sender)
-        if not config: raise AdmissionRefused(private_reason="UNKNOWN_CORRESPONDENT")
-        encoded=canonical(value);size=len(encoded);terms = self._fact(sender)["terms"]
+        self._refresh_if_changed(sender)
+        fact=self._fact(sender);secret=self.secrets.get(fact["introduction"])
+        if not secret:raise AdmissionRefused(private_reason="NO_CURRENT_STANDING")
+        encoded=canonical(value);size=len(encoded);terms = fact["terms"]
         if size > terms["max_package_bytes"]: raise AdmissionRefused(private_reason="PACKAGE_TOO_LARGE")
         if value["kind"] not in terms["kinds"]: raise AdmissionRefused(private_reason="KIND_NOT_INTRODUCED")
         if terms["expires_at"] <= int(self.now()): raise AdmissionRefused(private_reason="INTRODUCTION_EXPIRED")
-        if not verify_encoded_proof(config["secret"],encoded,evidence or {}): raise AdmissionRefused(private_reason="INVALID_CARRIAGE_PROOF")
-        introduction = relationship_id(self.recipient, sender)
-        with relationship_lock(self.root, introduction):
+        if not verify_encoded_proof(secret,encoded,evidence or {}): raise AdmissionRefused(private_reason="INVALID_CARRIAGE_PROOF")
+        introduction = fact["introduction"]
+        with relationship_lock(self.root, relationship_id(self.recipient,sender)):
+            # A standing change may have won while proof verification occurred.
+            self._refresh_if_changed(sender)
+            current=self.active.get(sender)
+            if not current or current["introduction"]!=introduction:raise AdmissionRefused(private_reason="NO_CURRENT_STANDING")
             current = self.current[sender]
             package_id = value["package"]
             repeated = (self.root / "acceptances" / f"{package_id}.json").exists()
@@ -212,5 +301,7 @@ class Admission:
                     self._write_current(sender,current);current["admissions_since_projection"]=0
 
     def outbound_proof(self, value: dict) -> dict | None:
-        relationship = self.relationships.get(value["to"])
-        return proof(relationship["secret"], value) if relationship else None
+        self._refresh_if_changed(value["to"])
+        current=self.active.get(value["to"])
+        secret=current and self.secrets.get(current["introduction"])
+        return proof(secret,value) if secret else None
