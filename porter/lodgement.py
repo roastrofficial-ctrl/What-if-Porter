@@ -28,8 +28,10 @@ def atomic_json(path: Path, value: dict) -> None:
         os.fsync(stream.fileno())
     os.replace(temporary, path)
     directory = os.open(path.parent, os.O_RDONLY)
-    try: os.fsync(directory)
-    finally: os.close(directory)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
 
 
 def atomic_text(path: Path, value: str) -> None:
@@ -63,7 +65,9 @@ def locked_lodgement(root: Path, lodgement_id: str):
         stream.close()
 
 
-def draft(package: dict, ticket_id: str | None = None, lodgement_id: str | None = None) -> dict:
+def draft(
+    package: dict, ticket_id: str | None = None, lodgement_id: str | None = None
+) -> dict:
     validate(package)
     ticket_id = ticket_id or f"CT-{uuid.uuid4().hex}"
     lodgement_id = lodgement_id or f"LG-{uuid.uuid4().hex}"
@@ -77,7 +81,13 @@ def draft(package: dict, ticket_id: str | None = None, lodgement_id: str | None 
         "expires": package["expires"],
         "abandoned": False,
         "collected_return": None,
-        "events": [{"event": "LODGED", "at_ms": lodged_at, "details": {"lodgement": lodgement_id}}],
+        "events": [
+            {
+                "event": "LODGED",
+                "at_ms": lodged_at,
+                "details": {"lodgement": lodgement_id},
+            }
+        ],
     }
     return {
         "protocol": "PORTER/1",
@@ -96,8 +106,13 @@ def publish(root: Path, value: dict) -> Path:
     target = accepted / f"{value['lodgement']}.json"
     if target.exists():
         surviving = json.loads(target.read_text())
-        if surviving["ticket"]["ticket"] != value["ticket"]["ticket"] or surviving["package"] != value["package"]:
-            raise ValueError("lodgement identity already names different correspondence")
+        if (
+            surviving["ticket"]["ticket"] != value["ticket"]["ticket"]
+            or surviving["package"] != value["package"]
+        ):
+            raise ValueError(
+                "lodgement identity already names different correspondence"
+            )
         return target
     atomic_json(target, value)
     return target
@@ -115,7 +130,9 @@ def materialize(root: Path, value: dict, fail_after: str | None = None) -> dict:
 
         if mapping.exists():
             if mapping.read_text().strip() != ticket["ticket"]:
-                raise ValueError("Package identity is associated with another Collection Ticket")
+                raise ValueError(
+                    "Package identity is associated with another Collection Ticket"
+                )
         else:
             atomic_text(mapping, ticket["ticket"] + "\n")
         interrupt(fail_after, "association")
@@ -125,14 +142,21 @@ def materialize(root: Path, value: dict, fail_after: str | None = None) -> dict:
         already_refused = (root / "refused" / f"{package_id}.json").exists()
         being_carried = (root / "outgoing" / f"{package_id}.carrying").exists()
         outgoing = root / "outgoing" / f"{package_id}.json"
-        if not (already_carried or already_refused or being_carried or outgoing.exists()):
+        if not (
+            already_carried or already_refused or being_carried or outgoing.exists()
+        ):
             atomic_write(root / "outgoing", package)
         interrupt(fail_after, "outgoing")
     return ticket
 
 
-def lodge(ipc, package: dict, ticket_id: str | None = None, lodgement_id: str | None = None,
-          fail_after: str | None = None) -> dict:
+def lodge(
+    ipc,
+    package: dict,
+    ticket_id: str | None = None,
+    lodgement_id: str | None = None,
+    fail_after: str | None = None,
+) -> dict:
     root = Path(ipc)
     value = draft(package, ticket_id, lodgement_id)
     publish(root, value)
@@ -170,4 +194,9 @@ def resolve(ipc, lodgement_id: str) -> dict:
         return {"lodgement": lodgement_id, "state": "NEVER_LODGED"}
     value = json.loads(path.read_text())
     materialize(root, value)
-    return {"lodgement": lodgement_id, "state": "DEFINITELY_LODGED", "ticket": value["ticket"]["ticket"], "package": value["package"]["package"]}
+    return {
+        "lodgement": lodgement_id,
+        "state": "DEFINITELY_LODGED",
+        "ticket": value["ticket"]["ticket"],
+        "package": value["package"]["package"],
+    }

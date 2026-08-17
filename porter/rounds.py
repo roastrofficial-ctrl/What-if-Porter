@@ -8,7 +8,11 @@ from .tickets import inspect
 
 
 def _event_at(ticket: dict, kind: str) -> int | None:
-    times = [int(item["at_ms"]) for item in ticket.get("events", []) if item.get("event") == kind]
+    times = [
+        int(item["at_ms"])
+        for item in ticket.get("events", [])
+        if item.get("event") == kind
+    ]
     return max(times) if times else None
 
 
@@ -22,7 +26,8 @@ def _observation(ticket: dict, observed_at: int) -> dict:
         "carriage_knowledge": ticket["carriage_knowledge"],
         "carriage_attempts": ticket["carriage_attempts"],
     }
-    if "acceptance_evidence" in ticket: value["acceptance_evidence"] = ticket["acceptance_evidence"]
+    if "acceptance_evidence" in ticket:
+        value["acceptance_evidence"] = ticket["acceptance_evidence"]
     held_at = _event_at(ticket, "RETURN_HELD")
     if held_at is not None:
         value["return_held_at_ms"] = held_at

@@ -150,6 +150,17 @@ class Admission:
         for sender, config in relationships.items():
             establish(self.root, recipient, sender, config["secret"], config, config.get("authority", "LOCAL_POLICY"))
         self.recover()
+        self.outbound={}
+        for peer,config in relationships.items():
+            path=self.root/"introductions"/"outbound"/f"{peer}.json"
+            secret_path=self.root/"introductions"/"outbound-secrets"/peer
+            if path.exists() and secret_path.exists():self.outbound[peer]={**json.loads(path.read_text()),"secret":secret_path.read_text().strip()}
+            else:
+                # The pre-1.3 prototype used reciprocal inbound standing as its
+                # outbound credential store. Seed from that current generation
+                # once, then persist the newly explicit distinction.
+                reciprocal=self.active.get(peer);secret=reciprocal and self.secrets.get(reciprocal["introduction"],config["secret"])
+                self.succeed_outbound(peer,relationship_id(peer,self.recipient),secret or config["secret"])
 
     def recover(self) -> None:
         """Rebuild current standing and relationship budgets from immutable facts."""
@@ -208,13 +219,14 @@ class Admission:
                 current["count"]+=1;current["bytes"]+=package_bytes(package)
         self.current[sender]=current;self._write_current(sender,current);return current
 
-    def prepare(self,sender: str,secret: str,terms: dict,authority: str="LOCAL_POLICY") -> dict:
+    def prepare(self,sender: str,secret: str,terms: dict,authority: str="LOCAL_POLICY",introduction: str | None=None) -> dict:
         """Publish replacement standing as an inert candidate."""
-        return establish(self.root,self.recipient,sender,secret,terms,authority,introduction=f"IN-{uuid.uuid4().hex}")
+        return establish(self.root,self.recipient,sender,secret,terms,authority,introduction=introduction or f"IN-{uuid.uuid4().hex}")
 
     def change(self, sender: str, secret: str | None, terms: dict | None, reason: str,
                authority: str = "LOCAL_POLICY", fail_after: str | None = None,
-               successor_introduction: str | None = None) -> dict:
+               successor_introduction: str | None = None, expected_predecessor: str | None = None,
+               cause: str | None = None) -> dict:
         """Atomically change which immutable Introduction may create new AC.
 
         Publishing SC is the sole threshold. A successor IN may exist before it
@@ -224,6 +236,7 @@ class Admission:
             self._refresh_if_changed(sender)
             predecessor=self.active.get(sender)
             if not predecessor:raise ValueError("no current standing to change")
+            if expected_predecessor and predecessor["introduction"]!=expected_predecessor:raise ValueError("standing predecessor is no longer current")
             successor=None
             if terms is not None:
                 if successor_introduction:
@@ -239,6 +252,7 @@ class Admission:
             value={"vocabulary":"PORTER-STANDING/1","change":f"SC-{uuid.uuid4().hex}","recipient":self.recipient,"sender":sender,
                    "predecessor":predecessor["introduction"],"successor":successor and successor["introduction"],
                    "reason":reason,"changed_at_ms":int(self.now()*1000),"attests":"RECIPIENT_PORTER_CHANGED_CURRENT_CORRESPONDENCE_STANDING"}
+            if cause:value["cause"]=cause
             # The predecessor names the unique transition slot. Besides making
             # forks impossible, this lets another local Porter process notice
             # the threshold in one bounded lookup.
@@ -301,7 +315,12 @@ class Admission:
                     self._write_current(sender,current);current["admissions_since_projection"]=0
 
     def outbound_proof(self, value: dict) -> dict | None:
-        self._refresh_if_changed(value["to"])
-        current=self.active.get(value["to"])
-        secret=current and self.secrets.get(current["introduction"])
+        current=self.outbound.get(value["to"])
+        secret=current and current.get("secret")
         return proof(secret,value) if secret else None
+
+    def succeed_outbound(self,peer: str,introduction: str | None,secret: str | None) -> None:
+        value={"vocabulary":"PORTER-OUTBOUND-STANDING/1","peer":peer,"remote_introduction":introduction,"known_at_ms":int(self.now()*1000)}
+        secret_path=self.root/"introductions"/"outbound-secrets"/peer;secret_path.parent.mkdir(parents=True,exist_ok=True)
+        temporary=secret_path.with_suffix(".tmp");temporary.write_text((secret or "")+"\n");temporary.chmod(0o600);os.replace(temporary,secret_path)
+        projection_json(self.root/"introductions"/"outbound"/f"{peer}.json",value);self.outbound[peer]={**value,"secret":secret}

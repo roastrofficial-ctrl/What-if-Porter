@@ -14,6 +14,12 @@ is specified in [STANDING-SUCCESSION.md](STANDING-SUCCESSION.md), and the stolen
 capability, race, crash, budget and real Butterfly results are in
 [COMPROMISE-CHECK.md](COMPROMISE-CHECK.md).
 
+PORTER 1.3 removes the recipient-local god-hand. [CEREMONIES.md](CEREMONIES.md)
+describes separately granted, bounded Porter-recipient ceremony;
+[CEREMONY-CHECK.md](CEREMONY-CHECK.md) records the delayed real compromise and
+hostile measurements. HTTP's newly exposed assumptions are isolated in
+[CARRIAGE-PRESSURE.md](CARRIAGE-PRESSURE.md).
+
 Early packet networks briefly experimented with directly addressable
 computational hosts. The resulting security and operational failures established
 the Host Isolation Principle:

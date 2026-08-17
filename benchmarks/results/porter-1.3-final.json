@@ -1,0 +1,64 @@
+{
+  "attempts": 10000,
+  "benchmark": "PORTER 1.3 Standing Ceremony Correspondence",
+  "elapsed_seconds": 1.0624566078186035,
+  "invalid_ceremony_refusal": {
+    "cpu_ms": 229.800792,
+    "growth": {
+      "bytes": 0,
+      "files": 0
+    },
+    "operations": {
+      "fsync": 0,
+      "opens_read": 0,
+      "opens_write": 0,
+      "rename": 0,
+      "replace": 0,
+      "unlink": 0
+    },
+    "wall_ms": 230.589
+  },
+  "ordinary_unknown_refusal": {
+    "cpu_ms": 169.322875,
+    "wall_ms": 169.419541
+  },
+  "process_max_rss_bytes": 24391680,
+  "valid_ceremony": {
+    "growth": {
+      "bytes": 347060,
+      "files": 701
+    },
+    "operations": {
+      "fsync": 1200,
+      "opens_read": 200,
+      "opens_write": 900,
+      "rename": 0,
+      "replace": 800,
+      "unlink": 100
+    },
+    "origin_durable_preparation": {
+      "median_ms": 1.554708,
+      "p95_ms": 3.040292,
+      "p99_ms": 5.019542,
+      "samples": 100
+    },
+    "proof_verification": {
+      "median_ms": 0.008875,
+      "p95_ms": 0.015875,
+      "p99_ms": 0.023833,
+      "samples": 100
+    },
+    "recipient_verification_candidate_sc_result": {
+      "median_ms": 3.3775,
+      "p95_ms": 7.124541,
+      "p99_ms": 10.766209,
+      "samples": 100
+    },
+    "total_without_transport_delay": {
+      "median_ms": 4.853959,
+      "p95_ms": 11.215833,
+      "p99_ms": 17.612375,
+      "samples": 100
+    }
+  }
+}

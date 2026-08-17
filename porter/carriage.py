@@ -40,7 +40,8 @@ def accept(root: Path, identity: str, package: dict) -> tuple[dict, bool]:
             raise ValueError("Package identity names different correspondence")
         inbox = root / "inbox" / f"{package['package']}.json"
         collected = root / "collected" / inbox.name
-        if not inbox.exists() and not collected.exists(): atomic_json(inbox, existing["package"])
+        if not inbox.exists() and not collected.exists():
+            atomic_json(inbox, existing["package"])
         return existing, True
     value = {
         "protocol": "PORTER/1",
@@ -67,23 +68,47 @@ def recover_acceptances(root: Path) -> None:
 
 def note_attempt(root: Path, package_id: str) -> dict:
     path = root / "carriage" / f"{package_id}.json"
-    value = json.loads(path.read_text()) if path.exists() else {
-        "protocol": "PORTER/1", "kind": "CARRIAGE_KNOWLEDGE", "package": package_id,
-        "knowledge": "ACCEPTANCE_UNKNOWN", "attempts": [],
-    }
-    value["attempts"].append({"attempt": len(value["attempts"]) + 1, "began_at_ms": now_ms()})
+    value = (
+        json.loads(path.read_text())
+        if path.exists()
+        else {
+            "protocol": "PORTER/1",
+            "kind": "CARRIAGE_KNOWLEDGE",
+            "package": package_id,
+            "knowledge": "ACCEPTANCE_UNKNOWN",
+            "attempts": [],
+        }
+    )
+    value["attempts"].append(
+        {"attempt": len(value["attempts"]) + 1, "began_at_ms": now_ms()}
+    )
     atomic_json(path, value)
     return value
 
 
 def retain_evidence(root: Path, receipt: dict) -> dict:
-    required = {"protocol", "kind", "package", "state", "recipient", "acceptance", "accepted_at_ms", "package_digest", "attests"}
+    required = {
+        "protocol",
+        "kind",
+        "package",
+        "state",
+        "recipient",
+        "acceptance",
+        "accepted_at_ms",
+        "package_digest",
+        "attests",
+    }
     if not isinstance(receipt, dict) or not required <= receipt.keys():
         raise ValueError("transport returned no PORTER acceptance evidence")
-    if receipt["protocol"] != "PORTER/1" or receipt["kind"] != "RECEIPT" or receipt["state"] != "REMOTE_PORTER_DURABLY_ACCEPTED":
+    if (
+        receipt["protocol"] != "PORTER/1"
+        or receipt["kind"] != "RECEIPT"
+        or receipt["state"] != "REMOTE_PORTER_DURABLY_ACCEPTED"
+    ):
         raise ValueError("transport response is not durable acceptance evidence")
     knowledge_path = root / "carriage" / f"{receipt['package']}.json"
-    if not knowledge_path.exists(): raise ValueError("acceptance evidence has no local carriage attempt")
+    if not knowledge_path.exists():
+        raise ValueError("acceptance evidence has no local carriage attempt")
     atomic_json(root / "receipts" / f"{receipt['package']}.json", receipt)
     value = json.loads(knowledge_path.read_text())
     value["knowledge"] = "REMOTE_ACCEPTANCE_KNOWN"
