@@ -1,0 +1,30 @@
+name: porter-generation6
+services:
+  find-me-porter:
+    build: .
+    command: ["--identity", "find-me", "--routes", "{\"harmonicdb\":\"http://harmonicdb-porter:7070\"}"]
+    volumes: [find-me-ipc:/ipc]
+    networks: [porter]
+  harmonicdb-porter:
+    build: .
+    command: ["--identity", "harmonicdb", "--routes", "{\"find-me\":\"http://find-me-porter:7070\"}"]
+    volumes: [harmonicdb-ipc:/ipc]
+    networks: [porter]
+  harmonicdb-host:
+    build: {context: ../.., dockerfile: machine/porter/HarmonicDB.Dockerfile}
+    command: ["sh", "-c", "test -f /data/find-me.hws || python -m harmonic model-demo /data/find-me.hws --dataset find-me; exec harmonic-host"]
+    environment: {PORTER_IPC: /porter, PORTER_EXPERIMENT_CRASH_POINT: "${PORTER_CRASH_POINT:-}"}
+    volumes: [harmonicdb-ipc:/porter, harmonicdb-data:/data]
+    network_mode: none
+  find-me-host:
+    build: .
+    entrypoint: ["python"]
+    environment: {PORTER_CRASH_POINT: "${PORTER_CRASH_POINT:-}"}
+    volumes: [find-me-ipc:/ipc]
+    network_mode: none
+networks:
+  porter: {}
+volumes:
+  find-me-ipc: {}
+  harmonicdb-ipc: {}
+  harmonicdb-data: {}

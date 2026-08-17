@@ -251,14 +251,58 @@ The historical lesson is:
 
 > **Collection transfers custody, not meaning.**
 
-## Candidate Generation VI — Application Disposition
+## Generation VI — Application Disposition
 
-PORTER responsibility now ends cleanly at recoverable Host custody, but a Host
-can still crash during application work or after an effect and before its own
-commit. Generation VI should investigate whether correspondence needs a local,
-Host-authored disposition after Collection—or whether the honest result is that
-this ambiguity belongs entirely to each application. It must not infer
-processing from Collection or promise exactly-once computation.
+Generation VI attempted the smallest plausible generic `DS-…` disposition and
+removed it. `PROCESSED`, `COMPLETED`, `FAILED`, and `IGNORED` each required an
+application-specific definition. Contradictory Host assertions were equally
+well-formed and PORTER possessed no communications evidence with which to
+validate either.
+
+The real HDBE experiment crashed after application read, after a database effect,
+after HarmonicDB's result record, after Return draft, and after Return Lodgement.
+The decisive case was an HDBE effect without a retained application result:
+PORTER's `LG`, `AC`, and `CL` history remained complete while application reality
+was fundamentally ambiguous. PORTER could neither recommend retry nor claim
+success. Later application records enabled HarmonicDB's own recovery, not a new
+PORTER state.
+
+A Return contributes ordinary correspondence facts: its own `LG`, later `AC`
+and `CL`, plus the preserved `in_reply_to` relationship. It does not prove that
+its parent succeeded, failed, completed, or was processed at all. Absence of a
+Return proves only that PORTER has no Return Lodgement.
+
+### PORTER DOES NOT KNOW
+
+Experiments now establish that PORTER does not know:
+
+- whether application code began or parsing succeeded;
+- whether an application effect occurred, occurred once, or committed;
+- whether collected correspondence was semantically valid;
+- whether application work succeeded, failed, completed, or was ignored;
+- whether a Return means success, failure, progress, rejection, or nonsense.
+
+PORTER owns correspondence integrity through recoverable Host custody.
+Applications own interpretation, effects, transactions, recovery and decisions
+to lodge further correspondence. No workflow state, callback, computation retry,
+or disposition primitive was added.
+
+The historical lesson is:
+
+> **Correspondence ends where meaning begins.**
+
+## Research horizon
+
+No immediate PORTER Generation VII is required. The core lifecycle has reached
+a stable conceptual boundary. Two longer-term Butterfly questions remain visible
+but have not earned PORTER generations:
+
+- **No Web Servers:** whether an inbound web-server fossil has any role when
+  application Hosts never accept unsolicited network communication.
+- **Continuous Correspondence:** whether durable ordered Segments can give
+  correspondence duration without reintroducing a Host-to-Host connection.
+
+Neither is implemented here.
 
 ROUNDS has earned shared names and an observable client journal, but not a
 PORTER wire verb. Hosts can therefore share the boundary ceremony while retaining
