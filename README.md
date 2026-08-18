@@ -25,6 +25,14 @@ PORTER 1.4 removes HTTP from the real Find Me ↔ HarmonicDB Porter path.
 [NATIVE-CARRIAGE-CHECK.md](NATIVE-CARRIAGE-CHECK.md) records relocation,
 ceremony, hostile framing, HTTP comparison and the real networkless journeys.
 
+PORTER 1.5 makes movement learned knowledge rather than a configuration edit.
+[RENDEZVOUS-CONTINUITY.md](RENDEZVOUS-CONTINUITY.md) specifies signed, chained
+`RV-…` facts; [RENDEZVOUS-CONTINUITY-CHECK.md](RENDEZVOUS-CONTINUITY-CHECK.md)
+records key/location rotation, stale recovery, replay, conflict, expiry,
+hostile cost, real HDBE Returns and the post-movement Standing Ceremony.
+
+## What is Porter?
+
 Early packet networks briefly experimented with directly addressable
 computational hosts. The resulting security and operational failures established
 the Host Isolation Principle:
@@ -35,6 +43,20 @@ A Host appoints a **Porter**. Network participants deposit a **Package** with th
 recipient Porter, which holds it in a local mail slot. Arrival never calls, wakes,
 interrupts or executes the Host. The Host must explicitly **COLLECT**. A response
 is another Package travelling in the opposite direction, called a **Return**.
+
+## Five-minute standalone demonstration
+
+PORTER can demonstrate its current ecosystem without [Butterfly](https://github.com/roastrofficial-ctrl/Butterfly-stack). The
+[PORTER Public House](demo/README.md) gives two isolated Hosts their own native
+Porters, serves an illustrative pint, and prints the durable Package journey:
+
+```sh
+./demo/run.sh
+```
+
+The demonstration uses no HTTP carriage. The response is a Return Package, not
+a response on the request connection, and the Taproom Host must explicitly
+collect before it can serve anything.
 
 ## Generation I experiment
 

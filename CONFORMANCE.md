@@ -3,6 +3,22 @@
 PORTER 1.0 freezes the correspondence semantics earned by Generations I–VI.
 Performance work is conformant only while every statement below remains true.
 
+## PORTER 1.5 rendezvous continuity
+
+- Static rendezvous configuration establishes only local generation-zero knowledge.
+- Later location and carriage-key knowledge is an immutable signed `RV` chain.
+- Carriage keys, DNS names, ports and endpoint possession are not Porter identity.
+- Transition authority is separate from standing and operational carriage keys.
+- Current knowledge advances only through one exact predecessor generation.
+- Replay cannot move current knowledge backwards.
+- Out-of-order hostile evidence creates no pending durable queue.
+- Valid authority conflict suspends carriage instead of choosing by arrival time.
+- Expiry leaves identity, standing and correspondence history intact.
+- A stale failure claims only failure of the locally known approach.
+- An unchanged spooled Package retries after authenticated knowledge improves.
+- Movement mutates no `LG`, `IN`, `SC`, `AC`, `CL`, `CM` or application identity.
+- Ordinary carriage needs no live continuity authority, Passport, or central oracle.
+
 ## Isolation
 
 - A computational Host has no IP connectivity, listener, or remotely addressable

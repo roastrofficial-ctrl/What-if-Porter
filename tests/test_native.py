@@ -58,12 +58,12 @@ class NativeCarriageExperiment(unittest.TestCase):
         self.assertEqual(1,len(list((self.b_root/"acceptances").glob(f"{value['package']}.json"))))
 
     def test_recipient_absence_retains_unit_then_same_identity_moves_rendezvous(self):
-        absent=port();self.a.native.rendezvous["harmonicdb"]["port"]=absent;first=package("find-me","harmonicdb","hdbe.call",{"absence":True},ttl=3600);atomic_write(self.a_root/"outgoing",first)
+        absent=port();known_route=self.a.native.knowledge.route;self.a.native.knowledge.route=lambda identity:{**known_route(identity),"port":absent};first=package("find-me","harmonicdb","hdbe.call",{"absence":True},ttl=3600);atomic_write(self.a_root/"outgoing",first)
         for _ in range(5):self.a.native.tick();time.sleep(.01)
         self.assertTrue((self.a_root/"native"/"outgoing"/f"CU-PKG-{first['package']}.json").exists());self.assertFalse((self.b_root/"acceptances"/f"{first['package']}.json").exists())
-        self.a.native.rendezvous["harmonicdb"]["port"]=self.b_port;self.pump(lambda:(self.a_root/"receipts"/f"{first['package']}.json").exists())
+        self.a.native.knowledge.route=known_route;self.pump(lambda:(self.a_root/"receipts"/f"{first['package']}.json").exists())
         old_intro=(self.b_root/"introductions"/"facts"/f"{relationship_id('harmonicdb','find-me')}.json").read_bytes();new_port=port();self.b.native.stop()
-        moved=Porter("harmonicdb",self.b_root,{},relationships={"find-me":terms("find-me")},require_introductions=True,native_private_key=self.b_key,native_rendezvous={"find-me":{"host":"127.0.0.1","port":self.a_port,"public_key":self.a_public}},native_listen=f"127.0.0.1:{new_port}");threading.Thread(target=moved.native.serve_forever,daemon=True).start();time.sleep(.25);self.b=moved;self.a.native.rendezvous["harmonicdb"]["port"]=new_port
+        moved=Porter("harmonicdb",self.b_root,{},relationships={"find-me":terms("find-me")},require_introductions=True,native_private_key=self.b_key,native_rendezvous={"find-me":{"host":"127.0.0.1","port":self.a_port,"public_key":self.a_public}},native_listen=f"127.0.0.1:{new_port}");threading.Thread(target=moved.native.serve_forever,daemon=True).start();time.sleep(.25);self.b=moved;self.a.native.knowledge.route=lambda identity:{**known_route(identity),"port":new_port}
         second=package("find-me","harmonicdb","hdbe.call",{"moved":True},ttl=3600);atomic_write(self.a_root/"outgoing",second);self.pump(lambda:(self.a_root/"receipts"/f"{second['package']}.json").exists())
         self.assertEqual(old_intro,(self.b_root/"introductions"/"facts"/f"{relationship_id('harmonicdb','find-me')}.json").read_bytes())
 

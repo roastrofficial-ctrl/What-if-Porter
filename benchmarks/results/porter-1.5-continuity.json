@@ -1,0 +1,22 @@
+{
+  "environment": "single-process local filesystem",
+  "ordinary_lookup_ns": {
+    "static_median": 83,
+    "authenticated_knowledge_median": 750,
+    "authenticated_knowledge_p95": 1625
+  },
+  "movement_ns": {
+    "evidence_creation": 910417,
+    "local_verification_and_threshold": 2807375
+  },
+  "hostile_10000": {
+    "rejected": 8000,
+    "authentic_replays": 2000,
+    "wall_ns": 421427125,
+    "cpu_ns": 421353581,
+    "files_created": 0,
+    "bytes_growth": 0,
+    "max_rss_bytes": 30797824
+  },
+  "claim_bytes": 538
+}

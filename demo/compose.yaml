@@ -1,0 +1,64 @@
+name: porter-public-house
+
+services:
+  visitor-porter:
+    build: ..
+    command:
+      - --identity
+      - visitor
+      - --native-listen
+      - 0.0.0.0:7410
+      - --native-private-key
+      - UBeQbSAduo50Cr29r3fsdLbDxFJUekUJjegGOZyDVnI=
+      - --native-rendezvous
+      - '{"taproom":{"host":"taproom-porter","port":7411,"public_key":"WKcwRcTpsgaQkFioIw3CRlZvCuI34HsM5/Pt1dKxDxw="}}'
+    volumes:
+      - visitor-ipc:/ipc
+    networks:
+      - carriage
+
+  taproom-porter:
+    build: ..
+    command:
+      - --identity
+      - taproom
+      - --native-listen
+      - 0.0.0.0:7411
+      - --native-private-key
+      - gCJ5zlYn6qqqbsrCcFsfWUOT5t6QPIifRUs7mNAt0Xg=
+      - --native-rendezvous
+      - '{"visitor":{"host":"visitor-porter","port":7410,"public_key":"YAQJYAprVfb6Q4vdAAZGOH4LO4wivIsSrxnjzanFFiI="}}'
+    volumes:
+      - taproom-ipc:/ipc
+    networks:
+      - carriage
+
+  taproom-host:
+    build:
+      context: ..
+      dockerfile: demo/Dockerfile
+    command: ["serve"]
+    volumes:
+      - taproom-ipc:/ipc
+    network_mode: none
+    depends_on:
+      - taproom-porter
+
+  visitor-host:
+    build:
+      context: ..
+      dockerfile: demo/Dockerfile
+    command: ["visit"]
+    volumes:
+      - visitor-ipc:/ipc
+    network_mode: none
+    depends_on:
+      - visitor-porter
+      - taproom-porter
+
+networks:
+  carriage: {}
+
+volumes:
+  visitor-ipc: {}
+  taproom-ipc: {}

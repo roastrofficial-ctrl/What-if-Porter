@@ -12,6 +12,8 @@ from pathlib import Path
 
 from .introduction import canonical
 from .lodgement import atomic_json
+from .rendezvous import VOCABULARY as RENDEZVOUS_VOCABULARY
+from .rendezvous import RendezvousKnowledge
 
 MAGIC = b"PRTR"
 VERSION = 1
@@ -157,6 +159,7 @@ class NativeCarriage:
         rendezvous: dict,
         listen: str,
         max_frame: int = MAX_FRAME,
+        continuity_authorities: dict | None = None,
     ):
         self.porter, self.root, self.identity = (
             porter,
@@ -165,6 +168,9 @@ class NativeCarriage:
         )
         self.private_key = private_key
         self.rendezvous = rendezvous
+        self.knowledge = RendezvousKnowledge(
+            self.root, rendezvous, continuity_authorities or {}
+        )
         self.listen = listen
         self.max_frame = min(max_frame, MAX_FRAME)
         self.running = True
@@ -232,6 +238,16 @@ class NativeCarriage:
 
     def tick(self) -> None:
         self.stage_host_outgoing()
+        for path in sorted(
+            (self.root / "rendezvous" / "outgoing").glob("RV-*.json")
+        ):
+            value = json.loads(path.read_text())
+            try:
+                self.send_rendezvous(path, value)
+            except Exception as exc:
+                value["last_attempt"] = "KNOWN_RECIPIENT_RENDEZVOUS_ATTEMPT_FAILED"
+                value["last_error"] = type(exc).__name__
+                atomic_json(path, value)
         for path in sorted((self.root / "outgoing").glob("CU-*.json")):
             value = json.loads(path.read_text())
             last = value.get("last_attempt_at_ms", 0)
@@ -239,13 +255,18 @@ class NativeCarriage:
                 continue
             try:
                 self.send(path, value)
-            except Exception:
+            except Exception as exc:
+                value["last_attempt"] = (
+                    "AWAITING_CURRENT_RENDEZVOUS_KNOWLEDGE"
+                    if hasattr(exc, "knowledge")
+                    else "KNOWN_RENDEZVOUS_ATTEMPT_FAILED"
+                )
+                value["last_error"] = type(exc).__name__
+                atomic_json(path, value)
                 continue
 
     def send(self, path: Path, value: dict) -> None:
-        target = self.rendezvous.get(value["to"])
-        if not target:
-            raise OSError("no rendezvous for Porter identity")
+        target = self.knowledge.route(value["to"])
         frame = seal(
             value["value"],
             self.identity,
@@ -265,6 +286,32 @@ class NativeCarriage:
             stream.shutdown(socket.SHUT_WR)
         if not value["await_evidence"]:
             path.unlink(missing_ok=True)
+
+    def queue_rendezvous(self, to: str, claim: dict) -> Path:
+        path = (
+            self.root
+            / "rendezvous"
+            / "outgoing"
+            / f"{claim['rendezvous']}--{to}.json"
+        )
+        atomic_json(path, {"to": to, "claim": claim, "attempts": 0})
+        return path
+
+    def send_rendezvous(self, path: Path, value: dict) -> None:
+        target = self.knowledge.route(value["to"])
+        body = canonical(value["claim"])
+        if len(body) > self.max_frame:
+            raise NativeFrameRefused("rendezvous evidence exceeds frame limit")
+        value["attempts"] += 1
+        value["last_attempt_at_ms"] = int(time.time() * 1000)
+        atomic_json(path, value)
+        frame = HEADER.pack(MAGIC, VERSION, len(body)) + body
+        with socket.create_connection(
+            (target["host"], int(target["port"])), timeout=2
+        ) as stream:
+            stream.sendall(frame)
+            stream.shutdown(socket.SHUT_WR)
+        path.unlink(missing_ok=True)
 
     def serve_forever(self) -> None:
         host, port = self.listen.rsplit(":", 1)
@@ -313,8 +360,16 @@ class NativeCarriage:
             body = _read_exact(stream, length)
             if stream.recv(1):
                 raise NativeFrameRefused("native payload exceeds declared frame")
+            possible_claim = json.loads(body)
+            if possible_claim.get("vocabulary") == RENDEZVOUS_VOCABULARY:
+                self.knowledge.accept(possible_claim)
+                return
+            self.knowledge.recover()
             peers = {
-                peer: details["public_key"] for peer, details in self.rendezvous.items()
+                peer: fact["carriage_public_key"]
+                for peer, fact in self.knowledge.current.items()
+                if self.knowledge.status(peer)["knowledge"]
+                == "CURRENT_RENDEZVOUS_KNOWN"
             }
             envelope, value = open_frame(body, self.identity, self.private_key, peers)
             self.receive(envelope, value)

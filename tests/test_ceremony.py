@@ -97,6 +97,12 @@ class StandingCeremonyCorrespondence(unittest.TestCase):
         restarted.ceremonies.retain_result(repeated);self.assertTrue((self.a_root/"ceremonies"/"receipts"/f"{value['ceremony']}.json").exists())
         fresh=self.pkg(777);self.assertEqual(proof(NEW,fresh),restarted.admission.outbound_proof(fresh))
 
+    def test_historical_result_recovery_cannot_rewind_later_outbound_standing(self):
+        first=self.draft(ceremony_id="CM-origin-first");self.a.ceremonies.lodge(first);first_result=self.present(first);self.a.ceremonies.retain_result(first_result)
+        second=self.a.ceremonies.draft("harmonicdb",first["successor"],THIRD,terms(THIRD),"RENEWAL",ceremony_id="CM-origin-second");self.a.ceremonies.lodge(second);second_result=self.present(second);self.a.ceremonies.retain_result(second_result)
+        restarted=Porter("find-me",self.a_root,{},relationships={"harmonicdb":config()},require_introductions=True)
+        fresh=self.pkg(778);self.assertEqual(proof(THIRD,fresh),restarted.admission.outbound_proof(fresh))
+
     def test_recipient_absence_preserves_origin_lodgement_until_later_carriage(self):
         value=self.draft();self.a.ceremonies.lodge(value);path=self.a_root/"ceremonies"/"outgoing"/f"{value['ceremony']}.json"
         self.a._network_ceremony=lambda *_:(_ for _ in ()).throw(OSError("recipient absent"))

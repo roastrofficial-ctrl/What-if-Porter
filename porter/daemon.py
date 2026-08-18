@@ -56,6 +56,7 @@ class Porter:
         native_private_key=None,
         native_rendezvous=None,
         native_listen=None,
+        continuity_authorities=None,
     ):
         self.identity = identity
         self.ipc = Path(ipc)
@@ -102,7 +103,11 @@ class Porter:
             from .native import NativeCarriage
 
             self.native = NativeCarriage(
-                self, native_private_key, native_rendezvous or {}, native_listen
+                self,
+                native_private_key,
+                native_rendezvous or {},
+                native_listen,
+                continuity_authorities=continuity_authorities or {},
             )
 
     def deposit(self, value, fail_after=None, admission=None):
@@ -475,6 +480,7 @@ def main():
     parser.add_argument("--native-listen")
     parser.add_argument("--native-private-key")
     parser.add_argument("--native-rendezvous", default="{}")
+    parser.add_argument("--continuity-authorities", default="{}")
     args = parser.parse_args()
     porter = Porter(
         args.identity,
@@ -486,6 +492,7 @@ def main():
         native_private_key=args.native_private_key,
         native_rendezvous=json.loads(args.native_rendezvous),
         native_listen=args.native_listen,
+        continuity_authorities=json.loads(args.continuity_authorities),
     )
     porter.crash_after_response_once = args.experiment_crash_before_acceptance_evidence
     threading.Thread(target=porter.carry, daemon=True).start()

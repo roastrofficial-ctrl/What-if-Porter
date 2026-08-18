@@ -225,6 +225,14 @@ class CeremonyService:
         lodged = self.root / "ceremonies" / "lodged" / f"{result['ceremony']}.json"
         if result.get("state") == "APPLIED" and lodged.exists():
             value = json.loads(lodged.read_text())["ceremony_value"]
+            current = self.admission.outbound.get(value["to"])
+            current_introduction = current and current.get("remote_introduction")
+            if current_introduction == result.get("successor"):
+                return
+            if current_introduction != value["predecessor"]:
+                # A historical result remains evidence, but cannot rewind later
+                # outbound knowledge merely because directory replay is unordered.
+                return
             self.admission.succeed_outbound(
                 value["to"], result.get("successor"), value.get("replacement_secret")
             )
