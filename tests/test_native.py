@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64,json,socket,struct,tempfile,threading,time,unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
@@ -50,6 +51,17 @@ class NativeCarriageExperiment(unittest.TestCase):
         self.pump(lambda:(self.a_root/"receipts"/f"{value['package']}.json").exists())
         self.assertTrue((self.b_root/"acceptances"/f"{value['package']}.json").exists());self.assertTrue((self.b_root/"inbox"/f"{value['package']}.json").exists())
         self.assertTrue(any(path.name.startswith("CU-EV-") for path in (self.b_root/"native"/"outgoing").glob("*.json")) or (self.a_root/"receipts"/f"{value['package']}.json").exists())
+
+    def test_settled_unit_disappearing_during_scan_does_not_kill_carriage(self):
+        self.a.native.queue("PACKAGE", "harmonicdb", {"race": True}, "CU-race")
+        target=self.a_root/"native"/"outgoing"/"CU-race.json";original=Path.read_text
+        def settle_during_read(path,*args,**kwargs):
+            if path == target:
+                path.unlink(missing_ok=True)
+                raise FileNotFoundError(path)
+            return original(path,*args,**kwargs)
+        with patch.object(Path,"read_text",settle_during_read):self.a.native.tick()
+        self.assertFalse(target.exists())
 
     def test_remote_ac_can_outrun_origin_knowledge_and_retry_repairs_it(self):
         value=package("find-me","harmonicdb","hdbe.call",{"lost_evidence":True},ttl=3600);atomic_write(self.a_root/"outgoing",value);original=self.b.native.send;self.b.native.send=lambda *_:(_ for _ in ()).throw(OSError("return path lost"))

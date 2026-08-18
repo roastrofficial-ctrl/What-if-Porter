@@ -249,7 +249,13 @@ class NativeCarriage:
                 value["last_error"] = type(exc).__name__
                 atomic_json(path, value)
         for path in sorted((self.root / "outgoing").glob("CU-*.json")):
-            value = json.loads(path.read_text())
+            # The receive thread may settle an evidence Unit after glob() but
+            # before this read. Its disappearance is successful convergence,
+            # not a carriage failure and must never kill the carry loop.
+            try:
+                value = json.loads(path.read_text())
+            except FileNotFoundError:
+                continue
             last = value.get("last_attempt_at_ms", 0)
             if int(time.time() * 1000) - last < 200:
                 continue

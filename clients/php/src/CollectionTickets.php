@@ -12,13 +12,14 @@ final class CollectionTickets
         $this->recoverCollections();
     }
 
-    public function deposit(string $recipient, string $kind, array $payload, int $ttl = 300): array
+    public function deposit(string $recipient, string $kind, array $payload, int $ttl = 300, ?string $inReplyTo = null): array
     {
         $now = time();
         $packageId = 'PKG-' . bin2hex(random_bytes(16));
         $ticketId = 'CT-' . bin2hex(random_bytes(16));
         $lodgementId = 'LG-' . bin2hex(random_bytes(16));
         $package = ['protocol' => 'PORTER/1', 'package' => $packageId, 'from' => $this->sender, 'to' => $recipient, 'kind' => $kind, 'created' => $now, 'expires' => $now + $ttl, 'reply_to' => $this->sender, 'payload' => $payload];
+        if ($inReplyTo !== null) $package['in_reply_to'] = $inReplyTo;
         $lodgedAt = $this->now();
         $ticket = ['protocol' => 'PORTER/1', 'ticket' => $ticketId, 'package' => $packageId, 'lodgement' => $lodgementId, 'created' => $now, 'expires' => $now + $ttl, 'abandoned' => false, 'collected_return' => null, 'events' => [['event' => 'LODGED', 'at_ms' => $lodgedAt, 'details' => ['lodgement' => $lodgementId]]]];
         $lodgement = ['protocol' => 'PORTER/1', 'kind' => 'LODGEMENT', 'lodgement' => $lodgementId, 'state' => 'LODGED', 'lodged_at_ms' => $lodgedAt, 'ticket' => $ticket, 'package' => $package];
@@ -61,7 +62,10 @@ final class CollectionTickets
         if (!$collectedReturn) {
             foreach (glob($this->path('collections/facts/CL-*.json')) ?: [] as $path) {
                 $fact = json_decode((string)file_get_contents($path), true);
-                if (($fact['package']['in_reply_to'] ?? null) === $ticket['package']) { $collectedReturn = $fact['package']['package']; break; }
+                if (($fact['package']['in_reply_to'] ?? null) === $ticket['package']) {
+                    $collectedReturn = $fact['package']['package'];
+                    break;
+                }
             }
         }
         if ($collectedReturn) $state = 'COLLECTED';
@@ -82,7 +86,7 @@ final class CollectionTickets
     {
         if ($ticketIds === []) throw new RuntimeException('A PORTER Round requires at least one Collection Ticket');
         $beganAt = $this->now();
-        $snapshots = array_map(fn ($ticketId) => $this->inspect((string)$ticketId), $ticketIds);
+        $snapshots = array_map(fn($ticketId) => $this->inspect((string)$ticketId), $ticketIds);
         $observedAt = $this->now();
         $roundId = 'RD-' . bin2hex(random_bytes(16));
         $observations = array_map(function (array $ticket) use ($observedAt) {
