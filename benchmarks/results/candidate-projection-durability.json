@@ -1,0 +1,25 @@
+{
+  "strategy": "grouped WAL/NORMAL; checkpoint 100 pages",
+  "transition_ms": {
+    "none": {"median": 1.974, "p95": 5.043, "p99": 8.563},
+    "full": {"median": 2.935, "p95": 6.593, "p99": 9.636},
+    "relaxed": {"median": 2.586, "p95": 2.987, "p99": 4.209},
+    "grouped": {"median": 2.006, "p95": 2.557, "p99": 3.599}
+  },
+  "attention_10000_ms": {
+    "zero": {"median": 0.295, "p95": 0.313},
+    "one": {"median": 1.338, "p95": 2.123},
+    "ten": {"median": 6.002, "p95": 13.325},
+    "hundred": {"median": 26.701, "p95": 27.626},
+    "thousand": {"median": 259.162, "p95": 303.092}
+  },
+  "rebuild_10000_ms": {
+    "total": 42989.069,
+    "canonical_scan": 42964.957,
+    "construction": 20.715,
+    "publication": 2.403
+  },
+  "projection_10000_bytes": 602112,
+  "ordinary_candidate_inodes": 4,
+  "cold_projection_inodes": 2
+}

@@ -1,0 +1,116 @@
+{
+  "mechanism": "indexed",
+  "repeats": 25,
+  "results": [
+    {
+      "discovered": 0,
+      "median_ms": 0.03325,
+      "p95_ms": 0.093916,
+      "minimum_ms": 0.027208,
+      "maximum_ms": 5.1235,
+      "total": 0,
+      "relevant": 0,
+      "inbox_bytes": 0,
+      "rss_kib": 23379968
+    },
+    {
+      "discovered": 0,
+      "median_ms": 0.07025,
+      "p95_ms": 0.080917,
+      "minimum_ms": 0.068875,
+      "maximum_ms": 3.417334,
+      "total": 10,
+      "relevant": 0,
+      "inbox_bytes": 2450,
+      "rss_kib": 23412736
+    },
+    {
+      "discovered": 1,
+      "median_ms": 1.002584,
+      "p95_ms": 1.496584,
+      "minimum_ms": 0.609917,
+      "maximum_ms": 1.677125,
+      "total": 10,
+      "relevant": 1,
+      "inbox_bytes": 2450,
+      "rss_kib": 23707648
+    },
+    {
+      "discovered": 0,
+      "median_ms": 0.125958,
+      "p95_ms": 0.209834,
+      "minimum_ms": 0.118083,
+      "maximum_ms": 3.356584,
+      "total": 1000,
+      "relevant": 0,
+      "inbox_bytes": 246890,
+      "rss_kib": 25657344
+    },
+    {
+      "discovered": 1,
+      "median_ms": 1.135792,
+      "p95_ms": 1.66475,
+      "minimum_ms": 0.619375,
+      "maximum_ms": 1.942375,
+      "total": 1000,
+      "relevant": 1,
+      "inbox_bytes": 246890,
+      "rss_kib": 25657344
+    },
+    {
+      "discovered": 0,
+      "median_ms": 0.295041,
+      "p95_ms": 0.312834,
+      "minimum_ms": 0.283125,
+      "maximum_ms": 6.43275,
+      "total": 10000,
+      "relevant": 0,
+      "inbox_bytes": 2424890,
+      "rss_kib": 31457280
+    },
+    {
+      "discovered": 1,
+      "median_ms": 1.337833,
+      "p95_ms": 2.122625,
+      "minimum_ms": 1.084709,
+      "maximum_ms": 3.692833,
+      "total": 10000,
+      "relevant": 1,
+      "inbox_bytes": 2424890,
+      "rss_kib": 31457280
+    },
+    {
+      "discovered": 10,
+      "median_ms": 6.001917,
+      "p95_ms": 13.325125,
+      "minimum_ms": 3.539334,
+      "maximum_ms": 14.166083,
+      "total": 10000,
+      "relevant": 10,
+      "inbox_bytes": 2424890,
+      "rss_kib": 31457280
+    },
+    {
+      "discovered": 100,
+      "median_ms": 26.701166,
+      "p95_ms": 27.626333,
+      "minimum_ms": 25.502625,
+      "maximum_ms": 34.434709,
+      "total": 10000,
+      "relevant": 100,
+      "inbox_bytes": 2424890,
+      "rss_kib": 31457280
+    },
+    {
+      "discovered": 1000,
+      "median_ms": 259.162166,
+      "p95_ms": 303.092209,
+      "minimum_ms": 251.5455,
+      "maximum_ms": 334.9755,
+      "total": 10000,
+      "relevant": 1000,
+      "inbox_bytes": 2424890,
+      "rss_kib": 32571392
+    }
+  ]
+}

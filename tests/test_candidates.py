@@ -1,10 +1,14 @@
 import json
+import os
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
-from porter.candidates import inspect, path_for, publish, rebuild, reconcile
+from porter.candidates import close, inspect, path_for, publish, rebuild, reconcile
 from porter.custody import collect_package
 from porter.daemon import Porter
 from porter.host_runtime import HostRuntime
@@ -40,7 +44,15 @@ class CandidateProjectionTest(unittest.TestCase):
         self.assertEqual(inspect(self.root, {"demo.work"}, 10), [(value["package"], "demo.work")])
         collect_package(self.root, value["package"], "host")
         self.assertEqual(inspect(self.root, {"demo.work"}, 10), [])
-        self.assertEqual(len(list((self.root / "candidates").iterdir())), 1)
+        self.assertEqual(
+            {path.name for path in (self.root / "candidates").iterdir()},
+            {
+                "candidates.sqlite3",
+                "candidates.sqlite3-wal",
+                "candidates.sqlite3-shm",
+                ".projection.lock",
+            },
+        )
 
     def test_missing_projection_rebuilds_only_from_uncollected_acceptance_truth(self):
         held = self.deposit()
@@ -126,6 +138,72 @@ class CandidateProjectionTest(unittest.TestCase):
         self.assertEqual(second["state"], "ALREADY_COLLECTED")
         self.assertEqual(second["collection"], first["collection"])
         self.assertEqual(len(list((self.root / "collections" / "facts").glob("CL-*.json"))), 1)
+
+    def test_live_projection_failure_becomes_detectable_absence_and_chosen_inspection_repairs(self):
+        value = package("sender", "host", "demo.work", {})
+        with patch("porter.candidates._existing_connection", side_effect=sqlite3.DatabaseError("lost connection")):
+            self.porter.deposit(value)
+        self.assertTrue((self.root / "acceptances" / f"{value['package']}.json").exists())
+        self.assertFalse(path_for(self.root).exists())
+        self.assertEqual(self.runtime().candidates(), [value["package"]])
+
+    def test_partial_power_loss_approximation_is_rebuilt_before_restarted_porter_is_usable(self):
+        values = [self.deposit() for _ in range(2)]
+        close(self.root)
+        database = path_for(self.root)
+        snapshot = database.read_bytes()
+        values.extend(self.deposit() for _ in range(3))
+        close(self.root)
+        database.write_bytes(snapshot)
+        self.assertEqual(len(inspect(self.root, {"demo.work"}, 10)), 2)
+        Porter("host", self.root, {})
+        self.assertEqual(
+            {package_id for package_id, _kind in inspect(self.root, {"demo.work"}, 10)},
+            {value["package"] for value in values},
+        )
+
+    def test_host_restart_does_not_rebuild_complete_warm_porter_projection(self):
+        values = [self.deposit() for _ in range(5)]
+        first = self.runtime().candidates()
+        second = self.runtime().candidates()
+        self.assertEqual(first, second)
+        self.assertEqual(set(second), {value["package"] for value in values})
+
+    def test_many_stale_rows_cannot_hide_one_live_candidate(self):
+        stale = [self.deposit() for _ in range(20)]
+        for value in stale:
+            collect_package(self.root, value["package"], "host")
+            publish(self.root, value)
+        live = self.deposit()
+        self.assertIn(live["package"], self.runtime().candidates())
+
+    def test_abrupt_process_loss_and_lost_uncheckpointed_wal_tail_cannot_starve_after_porter_restart(self):
+        values = [self.deposit() for _ in range(2)]
+        close(self.root)
+        with patch("porter.carriage.publish", lambda *_: None):
+            values.extend(self.deposit() for _ in range(3))
+        encoded = json.dumps(
+            [{"package": value["package"], "kind": value["kind"]} for value in values[2:]]
+        )
+        script = (
+            "import json,os; from pathlib import Path; "
+            "from porter.candidates import publish; "
+            f"root=Path({str(self.root)!r}); values=json.loads({encoded!r}); "
+            "[publish(root,value) for value in values]; os._exit(0)"
+        )
+        environment = dict(os.environ)
+        environment["PYTHONPATH"] = str(Path(__file__).parents[1])
+        subprocess.run([sys.executable, "-c", script], env=environment, check=True)
+        database = path_for(self.root)
+        self.assertTrue(database.with_name(database.name + "-wal").exists())
+        database.with_name(database.name + "-wal").unlink()
+        database.with_name(database.name + "-shm").unlink(missing_ok=True)
+        self.assertEqual(len(inspect(self.root, {"demo.work"}, 10)), 2)
+        Porter("host", self.root, {})
+        self.assertEqual(
+            {package_id for package_id, _kind in inspect(self.root, {"demo.work"}, 10)},
+            {value["package"] for value in values},
+        )
 
 
 if __name__ == "__main__":

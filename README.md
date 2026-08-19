@@ -70,6 +70,20 @@ and one relevant candidate from 2,174.287 ms to 2.005 ms. The projection occupie
 [`INDEXED-ATTENTION-CHECK.md`](INDEXED-ATTENTION-CHECK.md) and the
 consolidated [`benchmarks/results/indexed-attention.json`](benchmarks/results/indexed-attention.json).
 
+## Candidate Projection Durability
+
+Ordinary candidate maintenance now uses grouped WAL/NORMAL durability and a
+retained connection. Median AC was 2.006 ms versus 1.974 ms without the index;
+zero/one attention among 10,000 measured 0.295/1.338 ms. Candidate loss cannot
+alter AC or CL: Porter startup rebuilds before service and detected live update
+failure invalidates the projection so chosen inspection repairs it. No AC2,
+generation or completeness marker exists.
+
+The pressure record is
+[`CANDIDATE-PROJECTION-DURABILITY.md`](CANDIDATE-PROJECTION-DURABILITY.md),
+with consolidated measurements in
+[`benchmarks/results/candidate-projection-durability.json`](benchmarks/results/candidate-projection-durability.json).
+
 ## What is Porter?
 
 Early packet networks briefly experimented with directly addressable

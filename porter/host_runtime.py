@@ -132,9 +132,15 @@ class HostRuntime:
         self.stopping = True
 
     def candidates(self) -> list[str]:
-        packages: dict[str, str] = dict(
-            inspect_candidates(self.ipc, self.kinds, self.batch_size)
-        )
+        packages: dict[str, str] = {}
+        offset = 0
+        while len(packages) < self.batch_size:
+            page = inspect_candidates(self.ipc, self.kinds, self.batch_size, offset)
+            if not page:
+                break
+            packages.update(page)
+            offset += len(page)
+        projected = set(packages)
         if self.recovering:
             for path in self.ipc.joinpath("collections", "facts").glob("CL-*.json"):
                 fact = json.loads(path.read_text())
@@ -144,21 +150,35 @@ class HostRuntime:
                         packages[package["package"]] = package["kind"]
         returned = self.ipc / "host-runtime" / "dispatch-returned"
         selected = []
+        removed_projection = False
         for package_id, projected_kind in sorted(packages.items()):
             if (returned / f"{package_id}.json").exists():
+                if package_id in projected:
+                    settle_candidate(self.ipc, package_id)
+                    removed_projection = True
                 continue
             acceptance_path = self.ipc / "acceptances" / f"{package_id}.json"
             if not acceptance_path.exists():
                 settle_candidate(self.ipc, package_id)
+                removed_projection = True
                 continue
             canonical = json.loads(acceptance_path.read_text())["package"]
             if canonical.get("kind") != projected_kind or (
                 self.kinds and canonical.get("kind") not in self.kinds
             ):
                 settle_candidate(self.ipc, package_id)
+                removed_projection = True
                 continue
+            if (self.ipc / "collections" / "by-package" / package_id).exists():
+                if package_id in projected:
+                    settle_candidate(self.ipc, package_id)
+                    removed_projection = True
+                    continue
             selected.append(package_id)
-        return selected
+        if removed_projection and len(selected) < self.batch_size:
+            refill = [value for value in self.candidates() if value not in selected]
+            selected.extend(refill[: self.batch_size - len(selected)])
+        return selected[: self.batch_size]
 
     def visit(self) -> int:
         began = time.perf_counter_ns()
