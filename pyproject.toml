@@ -16,3 +16,4 @@ include = ["porter*"]
 porter = "porter.daemon:main"
 porter-evidence = "porter.evidence:main"
 porter-rendezvous = "porter.rendezvous:main"
+porter-host-runtime = "porter.host_runtime:main"

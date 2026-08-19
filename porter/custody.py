@@ -15,7 +15,13 @@ def locked_package(root: Path, package_id: str):
     locks.mkdir(parents=True, exist_ok=True)
     path = locks / f"{package_id}.lock"
     path.touch(exist_ok=True)
-    path.chmod(0o666)
+    try:
+        path.chmod(0o666)
+    except PermissionError:
+        # Shared IPC volumes may retain a lock inode created by another local
+        # process identity. Opening and flocking it is the concurrency
+        # requirement; changing metadata on an already-accessible lock is not.
+        pass
     stream = path.open("a+")
     try:
         fcntl.flock(stream, fcntl.LOCK_EX)
