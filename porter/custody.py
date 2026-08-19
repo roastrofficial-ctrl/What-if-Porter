@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .lodgement import atomic_json, atomic_text, interrupt, now_ms
+from .candidates import settle
 
 
 @contextmanager
@@ -60,6 +61,8 @@ def materialize(root: Path, value: dict, fail_after: str | None = None) -> dict:
         atomic_text(mapping, value["collection"] + "\n")
     interrupt(fail_after, "association")
     (root / "inbox" / f"{package_id}.json").unlink(missing_ok=True)
+    settle(root, package_id)
+    interrupt(fail_after, "candidate_removal")
     return value
 
 

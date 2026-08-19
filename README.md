@@ -53,7 +53,22 @@ python benchmarks/host_runtime_restart.py --profile harmonicdb --host harmonicdb
 The raw consolidated measurements are in
 [`benchmarks/results/host-runtime.json`](benchmarks/results/host-runtime.json),
 and the full cross-application pressure record is
-[`../../HOST-RUNTIME-PRESSURE.md`](../../HOST-RUNTIME-PRESSURE.md).
+[`HOST-RUNTIME-PRESSURE.md`](HOST-RUNTIME-PRESSURE.md).
+
+## Indexed Local Attention
+
+The Host Runtime no longer discovers configured Kinds by decoding every Package
+in current inbox custody. `PORTER-CANDIDATES/1` is a one-file, disposable local
+projection of Package identity and opaque Kind. AC minus CL reconstructs it;
+selected rows are checked against canonical AC before Collection. It contains no
+payload, application meaning or attention instruction and has no notification
+mechanism.
+
+At 10,000 candidates, empty lookup improved from 2,507.174 ms median to 0.927 ms
+and one relevant candidate from 2,174.287 ms to 2.005 ms. The projection occupied
+602,112 bytes and one inode. See
+[`INDEXED-ATTENTION-CHECK.md`](INDEXED-ATTENTION-CHECK.md) and the
+consolidated [`benchmarks/results/indexed-attention.json`](benchmarks/results/indexed-attention.json).
 
 ## What is Porter?
 

@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from .custody import collect_package, recover_collections
+from .candidates import inspect as inspect_candidates, settle as settle_candidate
 from .lodgement import atomic_json, atomic_text
 
 
@@ -131,23 +132,33 @@ class HostRuntime:
         self.stopping = True
 
     def candidates(self) -> list[str]:
-        packages: dict[str, dict] = {}
-        for path in self.ipc.joinpath("inbox").glob("PKG-*.json"):
-            value = json.loads(path.read_text())
-            packages[value["package"]] = value
+        packages: dict[str, str] = dict(
+            inspect_candidates(self.ipc, self.kinds, self.batch_size)
+        )
         if self.recovering:
             for path in self.ipc.joinpath("collections", "facts").glob("CL-*.json"):
                 fact = json.loads(path.read_text())
                 if fact.get("collector") == self.host:
                     package = fact["package"]
-                    packages[package["package"]] = package
+                    if not self.kinds or package.get("kind") in self.kinds:
+                        packages[package["package"]] = package["kind"]
         returned = self.ipc / "host-runtime" / "dispatch-returned"
-        return sorted(
-            package_id
-            for package_id, package in packages.items()
-            if not self.kinds or package.get("kind") in self.kinds
-            if not (returned / f"{package_id}.json").exists()
-        )
+        selected = []
+        for package_id, projected_kind in sorted(packages.items()):
+            if (returned / f"{package_id}.json").exists():
+                continue
+            acceptance_path = self.ipc / "acceptances" / f"{package_id}.json"
+            if not acceptance_path.exists():
+                settle_candidate(self.ipc, package_id)
+                continue
+            canonical = json.loads(acceptance_path.read_text())["package"]
+            if canonical.get("kind") != projected_kind or (
+                self.kinds and canonical.get("kind") not in self.kinds
+            ):
+                settle_candidate(self.ipc, package_id)
+                continue
+            selected.append(package_id)
+        return selected
 
     def visit(self) -> int:
         began = time.perf_counter_ns()
@@ -155,7 +166,9 @@ class HostRuntime:
         self.sequence += 1
         if self.recovering:
             recover_collections(self.ipc)
+        inspection_started = time.perf_counter_ns()
         selected = self.candidates()[: self.batch_size]
+        inspection_ms = (time.perf_counter_ns() - inspection_started) / 1e6
         self.recovering = False
         handled = 0
         for package_id in selected:
@@ -226,6 +239,8 @@ class HostRuntime:
                     "visit": visit_id,
                     "selected": len(selected),
                     "dispatched": handled,
+                    "inspection": "PORTER-CANDIDATES/1",
+                    "inspection_ms": round(inspection_ms, 3),
                     "visit_ms": round((time.perf_counter_ns() - began) / 1e6, 3),
                 },
             )

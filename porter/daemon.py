@@ -21,6 +21,7 @@ from .carriage import (
     retain_evidence,
 )
 from .custody import recover_collections
+from .candidates import rebuild as rebuild_candidates
 from .introduction import Admission, AdmissionRefused
 from .ceremony import (
     CeremonyService,
@@ -92,6 +93,7 @@ class Porter:
         recover(self.ipc)
         recover_acceptances(self.ipc)
         recover_collections(self.ipc)
+        rebuild_candidates(self.ipc)
         self.admission = Admission(
             self.ipc, self.identity, relationships or {}, require_introductions
         )
@@ -117,9 +119,7 @@ class Porter:
         if value["expires"] <= int(time.time()):
             raise ValueError("Package expired before deposit")
         with self.admission.authorize(value, admission):
-            acceptance, repeated = accept(self.ipc, self.identity, value)
-        if fail_after == "acceptance":
-            raise RuntimeError("interrupted after durable remote acceptance")
+            acceptance, repeated = accept(self.ipc, self.identity, value, fail_after)
         # AC is already the immutable account of first acceptance. Repeating
         # that fact in an unbounded diagnostic journal consumed a quarter of
         # dormant-custody storage without adding knowledge. A repeated arrival

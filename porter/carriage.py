@@ -6,6 +6,7 @@ import uuid
 from pathlib import Path
 
 from .lodgement import atomic_json, now_ms
+from .candidates import publish
 
 
 def package_digest(value: dict) -> str:
@@ -27,7 +28,7 @@ def acceptance_evidence(acceptance: dict) -> dict:
     }
 
 
-def accept(root: Path, identity: str, package: dict) -> tuple[dict, bool]:
+def accept(root: Path, identity: str, package: dict, fail_after: str | None = None) -> tuple[dict, bool]:
     """Publish the receiving Porter's canonical responsibility fact.
 
     The inbox is a replay-safe projection. Repeating one Package identity repeats
@@ -42,6 +43,8 @@ def accept(root: Path, identity: str, package: dict) -> tuple[dict, bool]:
         collected = root / "collected" / inbox.name
         if not inbox.exists() and not collected.exists():
             atomic_json(inbox, existing["package"])
+        if not (root / "collections" / "by-package" / package["package"]).exists():
+            publish(root, existing["package"])
         return existing, True
     value = {
         "protocol": "PORTER/1",
@@ -53,7 +56,12 @@ def accept(root: Path, identity: str, package: dict) -> tuple[dict, bool]:
         "accepted_at_ms": now_ms(),
     }
     atomic_json(path, value)
+    if fail_after == "acceptance":
+        raise RuntimeError("interrupted after durable remote acceptance")
     atomic_json(root / "inbox" / f"{package['package']}.json", package)
+    publish(root, package)
+    if fail_after == "candidate":
+        raise RuntimeError("interrupted after candidate projection")
     return value, False
 
 
