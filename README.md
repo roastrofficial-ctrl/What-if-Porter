@@ -31,6 +31,30 @@ PORTER 1.5 makes movement learned knowledge rather than a configuration edit.
 records key/location rotation, stale recovery, replay, conflict, expiry,
 hostile cost, real HDBE Returns and the post-movement Standing Ceremony.
 
+## Host Runtime experiment
+
+The Butterfly integration now uses one unchanged `porter-host-runtime` process
+for both Find Me and HarmonicDB. It is deliberately outside PORTER's protocol
+semantics: the runtime voluntarily inspects local custody, explicitly collects,
+and hands canonical `COLLECTION` facts to a warm application adapter over
+`PORTER-HOST-ADAPTER/1` JSON lines. PHP Find Me owns MailWeb and ROUNDS; Python
+HarmonicDB owns HDBE. Adapter return is an operational control threshold, not a
+PORTER or application disposition.
+
+Reproduce the synthetic workload and restart measurements with:
+
+```sh
+python benchmarks/host_runtime.py --profile find-me --host find-me --adapter 'php artisan mailweb:adapter'
+python benchmarks/host_runtime.py --profile harmonicdb --host harmonicdb --adapter harmonic-adapter
+python benchmarks/host_runtime_restart.py --profile find-me --host find-me --adapter 'php artisan mailweb:adapter'
+python benchmarks/host_runtime_restart.py --profile harmonicdb --host harmonicdb --adapter harmonic-adapter
+```
+
+The raw consolidated measurements are in
+[`benchmarks/results/host-runtime.json`](benchmarks/results/host-runtime.json),
+and the full cross-application pressure record is
+[`../../HOST-RUNTIME-PRESSURE.md`](../../HOST-RUNTIME-PRESSURE.md).
+
 ## What is Porter?
 
 Early packet networks briefly experimented with directly addressable

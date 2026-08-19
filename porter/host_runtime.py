@@ -34,6 +34,7 @@ class Adapter:
     """
 
     def __init__(self, command: str):
+        started = time.perf_counter_ns()
         self.process = subprocess.Popen(
             shlex.split(command),
             stdin=subprocess.PIPE,
@@ -41,6 +42,17 @@ class Adapter:
             text=True,
             bufsize=1,
         )
+        assert self.process.stdout is not None
+        line = self.process.stdout.readline()
+        if not line:
+            raise RuntimeError("application adapter exited before becoming ready")
+        ready = json.loads(line)
+        if (
+            ready.get("contract") != "PORTER-HOST-ADAPTER/1"
+            or ready.get("runtime_observation") != "ADAPTER_READY"
+        ):
+            raise RuntimeError("invalid application adapter readiness reply")
+        self.startup_ms = (time.perf_counter_ns() - started) / 1e6
 
     def dispatch(self, dispatch_id: str, collection: dict) -> dict:
         if self.process.poll() is not None:
@@ -97,6 +109,8 @@ class HostRuntime:
         batch_size: int,
         idle_ms: int,
         journal: Path,
+        min_idle_ms: int = 1,
+        max_idle_ms: int = 60_000,
     ):
         if batch_size < 1:
             raise ValueError("batch size must be positive")
@@ -106,9 +120,12 @@ class HostRuntime:
         self.kinds = kinds
         self.batch_size = batch_size
         self.idle_ms = idle_ms
+        self.min_idle_ms = min_idle_ms
+        self.max_idle_ms = max_idle_ms
         self.journal = journal
         self.stopping = False
         self.sequence = 0
+        self.recovering = True
 
     def stop(self, *_args) -> None:
         self.stopping = True
@@ -118,11 +135,12 @@ class HostRuntime:
         for path in self.ipc.joinpath("inbox").glob("PKG-*.json"):
             value = json.loads(path.read_text())
             packages[value["package"]] = value
-        for path in self.ipc.joinpath("collections", "facts").glob("CL-*.json"):
-            fact = json.loads(path.read_text())
-            if fact.get("collector") == self.host:
-                package = fact["package"]
-                packages[package["package"]] = package
+        if self.recovering:
+            for path in self.ipc.joinpath("collections", "facts").glob("CL-*.json"):
+                fact = json.loads(path.read_text())
+                if fact.get("collector") == self.host:
+                    package = fact["package"]
+                    packages[package["package"]] = package
         returned = self.ipc / "host-runtime" / "dispatch-returned"
         return sorted(
             package_id
@@ -135,8 +153,10 @@ class HostRuntime:
         began = time.perf_counter_ns()
         visit_id = f"VISIT-{self.host}-{now_ms()}-{self.sequence}"
         self.sequence += 1
-        recover_collections(self.ipc)
+        if self.recovering:
+            recover_collections(self.ipc)
         selected = self.candidates()[: self.batch_size]
+        self.recovering = False
         handled = 0
         for package_id in selected:
             if self.stopping:
@@ -159,7 +179,12 @@ class HostRuntime:
                     "collection_ms": round(collection_ms, 3),
                 },
             )
-            self.adapter.dispatch(dispatch_id, collection)
+            reply = self.adapter.dispatch(dispatch_id, collection)
+            requested_idle = reply.get("next_visit_ms")
+            if isinstance(requested_idle, int):
+                self.idle_ms = min(
+                    self.max_idle_ms, max(self.min_idle_ms, requested_idle)
+                )
             dispatch_ms = (time.perf_counter_ns() - dispatch_started) / 1e6
             atomic_json(
                 self.ipc
@@ -186,21 +211,24 @@ class HostRuntime:
                     "package": package_id,
                     "collection": collection["collection"],
                     "dispatch_ms": round(dispatch_ms, 3),
+                    "requested_next_visit_ms": requested_idle,
+                    "effective_next_visit_ms": self.idle_ms,
                 },
             )
             handled += 1
-        append_json(
-            self.journal,
-            {
-                "observation": "VISIT_ENDED",
-                "at_ms": now_ms(),
-                "host": self.host,
-                "visit": visit_id,
-                "selected": len(selected),
-                "dispatched": handled,
-                "visit_ms": round((time.perf_counter_ns() - began) / 1e6, 3),
-            },
-        )
+        if selected:
+            append_json(
+                self.journal,
+                {
+                    "observation": "VISIT_ENDED",
+                    "at_ms": now_ms(),
+                    "host": self.host,
+                    "visit": visit_id,
+                    "selected": len(selected),
+                    "dispatched": handled,
+                    "visit_ms": round((time.perf_counter_ns() - began) / 1e6, 3),
+                },
+            )
         return handled
 
     def run(self, once: bool = False) -> None:
@@ -209,6 +237,17 @@ class HostRuntime:
         atomic_text(
             self.ipc / "host.ready",
             f"{self.host} Host Runtime is locally active; arrival cannot wake it.\n",
+        )
+        append_json(
+            self.journal,
+            {
+                "observation": "ADAPTER_READY",
+                "at_ms": now_ms(),
+                "host": self.host,
+                "adapter_startup_ms": round(
+                    float(getattr(self.adapter, "startup_ms", 0.0)), 3
+                ),
+            },
         )
         try:
             while not self.stopping:
@@ -229,6 +268,8 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--kind", action="append", default=[])
     value.add_argument("--batch-size", type=int, default=10)
     value.add_argument("--idle-ms", type=int, default=100)
+    value.add_argument("--min-idle-ms", type=int, default=1)
+    value.add_argument("--max-idle-ms", type=int, default=60_000)
     value.add_argument("--journal")
     value.add_argument("--once", action="store_true")
     return value
@@ -245,6 +286,8 @@ def main() -> None:
         batch_size=args.batch_size,
         idle_ms=args.idle_ms,
         journal=Path(args.journal or ipc / "host-runtime.jsonl"),
+        min_idle_ms=args.min_idle_ms,
+        max_idle_ms=args.max_idle_ms,
     )
     runtime.run(args.once)
 

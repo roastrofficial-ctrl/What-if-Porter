@@ -1,0 +1,42 @@
+{
+  "experiment": "PORTER Host Runtime",
+  "measured_at": "2026-08-19",
+  "units": "milliseconds unless stated",
+  "hosts": {
+    "find-me": {
+      "adapter_startup_ms_range": [46.462, 50.619],
+      "workloads": {
+        "0": {"episodic_total": 52.790, "warm_work": 0.065},
+        "1": {"episodic_total": 58.889, "warm_work": 8.379, "warm_dispatch_median": 5.296},
+        "10": {"episodic_total": 88.762, "warm_work": 42.663, "warm_dispatch_median": 1.595},
+        "100": {"episodic_total": 602.261, "warm_work": 523.876, "warm_dispatch_median": 1.617}
+      },
+      "batch_100": {
+        "1": {"elapsed": 720.936, "throughput_per_second": 138.71, "oldest": 12, "newest": 720},
+        "10": {"elapsed": 554.585, "throughput_per_second": 180.31, "oldest": 9, "newest": 554},
+        "25": {"elapsed": 599.944, "throughput_per_second": 166.68, "oldest": 13, "newest": 600},
+        "100": {"elapsed": 660.315, "throughput_per_second": 151.44, "oldest": 18, "newest": 660}
+      },
+      "backlog_500": {"batch": 10, "elapsed": 4507.929, "throughput_per_second": 110.92, "oldest": 18, "newest": 4507},
+      "arriving_while_busy": {"initial": 10, "arriving": 100, "batch": 10, "elapsed": 743.542, "throughput_per_second": 147.94, "oldest": 13, "newest": 743}
+    },
+    "harmonicdb": {
+      "adapter_startup_ms_range": [43.260, 48.759],
+      "workloads": {
+        "0": {"episodic_total": 59.564, "warm_work": 0.085},
+        "1": {"episodic_total": 69.499, "warm_work": 13.363, "warm_dispatch_median": 7.237},
+        "10": {"episodic_total": 166.170, "warm_work": 104.961, "warm_dispatch_median": 5.705},
+        "100": {"episodic_total": 1281.873, "warm_work": 1132.952, "warm_dispatch_median": 6.316}
+      },
+      "batch_100": {
+        "1": {"elapsed": 1262.070, "throughput_per_second": 79.23, "oldest": 15, "newest": 1260},
+        "10": {"elapsed": 880.483, "throughput_per_second": 113.57, "oldest": 14, "newest": 876},
+        "25": {"elapsed": 682.651, "throughput_per_second": 146.49, "oldest": 8, "newest": 682},
+        "100": {"elapsed": 676.172, "throughput_per_second": 147.89, "oldest": 8, "newest": 676}
+      },
+      "backlog_500": {"batch": 25, "elapsed": 4613.066, "throughput_per_second": 108.39, "oldest": 24, "newest": 4613},
+      "arriving_while_busy": {"initial": 10, "arriving": 100, "batch": 25, "elapsed": 738.116, "throughput_per_second": 149.03, "oldest": 6, "newest": 738}
+    }
+  },
+  "concurrency_earned": false
+}
