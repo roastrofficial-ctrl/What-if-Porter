@@ -97,6 +97,19 @@ auditability, ordinary mutation and indexed attention are unchanged.
 See [`CANONICAL-HISTORY-ENUMERATION-CHECK.md`](CANONICAL-HISTORY-ENUMERATION-CHECK.md)
 and [`benchmarks/results/canonical-history-enumeration.json`](benchmarks/results/canonical-history-enumeration.json).
 
+## Frozen Host Runtime contract
+
+The common local seam used unchanged by PHP Find Me, Python HarmonicDB and a
+third no-Return transformation Host is now frozen as
+[`PORTER-HOST-RUNTIME/1`](PORTER-HOST-RUNTIME-1.md) and
+[`PORTER-HOST-ADAPTER/1`](PORTER-HOST-ADAPTER-1.md). It specifies chosen local
+attention, canonical validation, Collection and a local application opportunity;
+it explicitly does not specify application success, completion, retry, Return,
+cadence, batching transactions or implementation mechanics.
+
+See [`HOST-RUNTIME-CONFORMANCE.md`](HOST-RUNTIME-CONFORMANCE.md) and the
+[`freeze pressure record`](HOST-RUNTIME-FREEZE-CHECK.md).
+
 ## What is Porter?
 
 Early packet networks briefly experimented with directly addressable

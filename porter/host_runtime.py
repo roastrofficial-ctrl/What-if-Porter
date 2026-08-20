@@ -13,17 +13,24 @@ from .custody import collect_package, recover_collections
 from .candidates import inspect as inspect_candidates, settle as settle_candidate
 from .lodgement import atomic_json, atomic_text
 
+MAX_ADAPTER_CONTROL_CHARS = 65_536
+
 
 def now_ms() -> int:
     return int(time.time() * 1000)
 
 
 def append_json(path: Path, value: dict) -> None:
+    """Append expendable operational telemetry.
+
+    This journal is neither canonical evidence nor Runtime recovery state.  It
+    is deliberately not forced to durable storage; loss may erase observation,
+    never AC, CL, adapter control state, or application meaning.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a") as stream:
         stream.write(json.dumps(value, separators=(",", ":")) + "\n")
         stream.flush()
-        os.fsync(stream.fileno())
 
 
 class Adapter:
@@ -44,7 +51,7 @@ class Adapter:
             bufsize=1,
         )
         assert self.process.stdout is not None
-        line = self.process.stdout.readline()
+        line = self._read_control("exited before becoming ready")
         if not line:
             raise RuntimeError("application adapter exited before becoming ready")
         ready = json.loads(line)
@@ -54,6 +61,15 @@ class Adapter:
         ):
             raise RuntimeError("invalid application adapter readiness reply")
         self.startup_ms = (time.perf_counter_ns() - started) / 1e6
+
+    def _read_control(self, empty_reason: str) -> str:
+        assert self.process.stdout is not None
+        line = self.process.stdout.readline(MAX_ADAPTER_CONTROL_CHARS + 1)
+        if not line:
+            raise RuntimeError(f"application adapter {empty_reason}")
+        if len(line) > MAX_ADAPTER_CONTROL_CHARS or not line.endswith("\n"):
+            raise RuntimeError("application adapter control line exceeds limit")
+        return line
 
     def dispatch(self, dispatch_id: str, collection: dict) -> dict:
         if self.process.poll() is not None:
@@ -72,9 +88,7 @@ class Adapter:
             + "\n"
         )
         self.process.stdin.flush()
-        line = self.process.stdout.readline()
-        if not line:
-            raise RuntimeError("application adapter exited without returning control")
+        line = self._read_control("exited without returning control")
         reply = json.loads(line)
         if (
             reply.get("contract") != "PORTER-HOST-ADAPTER/1"
@@ -85,19 +99,20 @@ class Adapter:
         return reply
 
     def close(self, grace_seconds: float = 5.0) -> None:
-        if self.process.poll() is not None:
-            return
-        if self.process.stdin is not None:
-            self.process.stdin.close()
-        try:
-            self.process.wait(timeout=grace_seconds)
-        except subprocess.TimeoutExpired:
-            self.process.terminate()
+        if self.process.poll() is None:
+            if self.process.stdin is not None:
+                self.process.stdin.close()
             try:
                 self.process.wait(timeout=grace_seconds)
             except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait()
+                self.process.terminate()
+                try:
+                    self.process.wait(timeout=grace_seconds)
+                except subprocess.TimeoutExpired:
+                    self.process.kill()
+                    self.process.wait()
+        if self.process.stdout is not None:
+            self.process.stdout.close()
 
 
 class HostRuntime:
@@ -110,8 +125,6 @@ class HostRuntime:
         batch_size: int,
         idle_ms: int,
         journal: Path,
-        min_idle_ms: int = 1,
-        max_idle_ms: int = 60_000,
     ):
         if batch_size < 1:
             raise ValueError("batch size must be positive")
@@ -121,8 +134,6 @@ class HostRuntime:
         self.kinds = kinds
         self.batch_size = batch_size
         self.idle_ms = idle_ms
-        self.min_idle_ms = min_idle_ms
-        self.max_idle_ms = max_idle_ms
         self.journal = journal
         self.stopping = False
         self.sequence = 0
@@ -190,14 +201,14 @@ class HostRuntime:
         selected = self.candidates()[: self.batch_size]
         inspection_ms = (time.perf_counter_ns() - inspection_started) / 1e6
         self.recovering = False
-        handled = 0
+        dispatched = 0
         for package_id in selected:
             if self.stopping:
                 break
             collection_started = time.perf_counter_ns()
             collection = collect_package(self.ipc, package_id, self.host)
             collection_ms = (time.perf_counter_ns() - collection_started) / 1e6
-            dispatch_id = f"{visit_id}:{handled + 1}"
+            dispatch_id = f"{visit_id}:{dispatched + 1}"
             dispatch_started = time.perf_counter_ns()
             append_json(
                 self.journal,
@@ -213,11 +224,6 @@ class HostRuntime:
                 },
             )
             reply = self.adapter.dispatch(dispatch_id, collection)
-            requested_idle = reply.get("next_visit_ms")
-            if isinstance(requested_idle, int):
-                self.idle_ms = min(
-                    self.max_idle_ms, max(self.min_idle_ms, requested_idle)
-                )
             dispatch_ms = (time.perf_counter_ns() - dispatch_started) / 1e6
             atomic_json(
                 self.ipc
@@ -244,11 +250,9 @@ class HostRuntime:
                     "package": package_id,
                     "collection": collection["collection"],
                     "dispatch_ms": round(dispatch_ms, 3),
-                    "requested_next_visit_ms": requested_idle,
-                    "effective_next_visit_ms": self.idle_ms,
                 },
             )
-            handled += 1
+            dispatched += 1
         if selected:
             append_json(
                 self.journal,
@@ -258,13 +262,13 @@ class HostRuntime:
                     "host": self.host,
                     "visit": visit_id,
                     "selected": len(selected),
-                    "dispatched": handled,
+                    "dispatched": dispatched,
                     "inspection": "PORTER-CANDIDATES/1",
                     "inspection_ms": round(inspection_ms, 3),
                     "visit_ms": round((time.perf_counter_ns() - began) / 1e6, 3),
                 },
             )
-        return handled
+        return dispatched
 
     def run(self, once: bool = False) -> None:
         for named_signal in (signal.SIGTERM, signal.SIGINT):
@@ -286,10 +290,10 @@ class HostRuntime:
         )
         try:
             while not self.stopping:
-                handled = self.visit()
+                dispatched = self.visit()
                 if once:
                     break
-                if handled == 0:
+                if dispatched == 0:
                     time.sleep(self.idle_ms / 1000)
         finally:
             self.adapter.close()
@@ -303,8 +307,6 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--kind", action="append", default=[])
     value.add_argument("--batch-size", type=int, default=10)
     value.add_argument("--idle-ms", type=int, default=100)
-    value.add_argument("--min-idle-ms", type=int, default=1)
-    value.add_argument("--max-idle-ms", type=int, default=60_000)
     value.add_argument("--journal")
     value.add_argument("--once", action="store_true")
     return value
@@ -321,8 +323,6 @@ def main() -> None:
         batch_size=args.batch_size,
         idle_ms=args.idle_ms,
         journal=Path(args.journal or ipc / "host-runtime.jsonl"),
-        min_idle_ms=args.min_idle_ms,
-        max_idle_ms=args.max_idle_ms,
     )
     runtime.run(args.once)
 
