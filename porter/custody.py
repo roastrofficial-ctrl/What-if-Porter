@@ -36,12 +36,14 @@ def _facts(root: Path):
     return sorted((root / "collections" / "facts").glob("CL-*.json"))
 
 
-def find_collection(root: Path, package_id: str) -> dict | None:
+def find_collection(root: Path, package_id: str, scan_missing: bool = True) -> dict | None:
     mapping = root / "collections" / "by-package" / package_id
     if mapping.exists():
         path = root / "collections" / "facts" / f"{mapping.read_text().strip()}.json"
         if path.exists():
             return json.loads(path.read_text())
+    if not scan_missing:
+        return None
     for path in _facts(root):
         value = json.loads(path.read_text())
         if value["package"]["package"] == package_id:
@@ -57,7 +59,7 @@ def materialize(root: Path, value: dict, fail_after: str | None = None) -> dict:
         atomic_json(collected, package)
     interrupt(fail_after, "host_projection")
     mapping = root / "collections" / "by-package" / package_id
-    if not mapping.exists():
+    if not mapping.exists() or mapping.read_text().strip() != value["collection"]:
         atomic_text(mapping, value["collection"] + "\n")
     interrupt(fail_after, "association")
     (root / "inbox" / f"{package_id}.json").unlink(missing_ok=True)
@@ -67,12 +69,13 @@ def materialize(root: Path, value: dict, fail_after: str | None = None) -> dict:
 
 
 def collect_package(
-    ipc, package_id: str, collector: str, fail_after: str | None = None
+    ipc, package_id: str, collector: str, fail_after: str | None = None,
+    scan_missing: bool = True,
 ) -> dict:
     """Host-initiated transfer from Porter custody into recoverable Host custody."""
     root = Path(ipc)
     with locked_package(root, package_id):
-        existing = find_collection(root, package_id)
+        existing = find_collection(root, package_id, scan_missing=scan_missing)
         if existing is not None:
             materialize(root, existing, fail_after)
             return {**existing, "state": "ALREADY_COLLECTED"}
@@ -90,6 +93,15 @@ def collect_package(
             "collected_at_ms": now_ms(),
             "attests": "PACKAGE_RECOVERABLY_TRANSFERRED_TO_HOST_CUSTODY",
         }
+        # Publish the disposable direct association first.  It cannot make CL
+        # true because readers still require the named canonical fact.  Once
+        # CL crosses its unchanged atomic threshold, however, a missing mapping
+        # can no longer force every subsequent new Collection to scan all CLs.
+        atomic_text(
+            root / "collections" / "by-package" / package_id,
+            value["collection"] + "\n",
+        )
+        interrupt(fail_after, "association_reservation")
         atomic_json(
             root / "collections" / "facts" / f"{value['collection']}.json", value
         )

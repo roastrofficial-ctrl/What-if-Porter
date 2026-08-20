@@ -206,7 +206,13 @@ class HostRuntime:
             if self.stopping:
                 break
             collection_started = time.perf_counter_ns()
-            collection = collect_package(self.ipc, package_id, self.host)
+            # The first visit recovered every canonical CL association. New CL
+            # publication reserves its association before the canonical fact,
+            # so this lifecycle need not rescan the growing CL directory merely
+            # to establish that a new Package has not already been collected.
+            collection = collect_package(
+                self.ipc, package_id, self.host, scan_missing=False
+            )
             collection_ms = (time.perf_counter_ns() - collection_started) / 1e6
             dispatch_id = f"{visit_id}:{dispatched + 1}"
             dispatch_started = time.perf_counter_ns()
@@ -309,21 +315,37 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--idle-ms", type=int, default=100)
     value.add_argument("--journal")
     value.add_argument("--once", action="store_true")
+    value.add_argument("--max-inflight-offers", type=int, default=1)
     return value
 
 
 def main() -> None:
     args = parser().parse_args()
     ipc = Path(args.ipc)
-    runtime = HostRuntime(
-        ipc=ipc,
-        host=args.host,
-        adapter=Adapter(args.adapter),
-        kinds=set(args.kind),
-        batch_size=args.batch_size,
-        idle_ms=args.idle_ms,
-        journal=Path(args.journal or ipc / "host-runtime.jsonl"),
-    )
+    common = {
+        "ipc": ipc, "host": args.host, "kinds": set(args.kind),
+        "batch_size": args.batch_size, "idle_ms": args.idle_ms,
+        "journal": Path(args.journal or ipc / "host-runtime.jsonl"),
+    }
+    if args.max_inflight_offers == 1:
+        runtime = HostRuntime(adapter=Adapter(args.adapter), **common)
+    else:
+        if args.max_inflight_offers < 1:
+            raise ValueError("max inflight offers must be positive")
+        from .opportunities import BoundedOpportunityRuntime
+        adapters = []
+        try:
+            for _ in range(args.max_inflight_offers):
+                adapters.append(Adapter(args.adapter))
+        except BaseException:
+            for adapter in adapters:
+                adapter.close()
+            raise
+        runtime = BoundedOpportunityRuntime(
+            adapters=adapters,
+            max_inflight_offers=args.max_inflight_offers,
+            **common,
+        )
     runtime.run(args.once)
 
 

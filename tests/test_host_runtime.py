@@ -188,6 +188,14 @@ class HostRuntimeExperiment(unittest.TestCase):
         self.assertEqual(self.runtime(adapter).visit(), 1)
         self.assertEqual(len(adapter.collections), 1)
 
+    def test_runtime_recovery_earns_direct_collection_lookup(self):
+        self.accept(3)
+        adapter = RecordingAdapter()
+        from porter.custody import _facts
+        with patch("porter.custody._facts", wraps=_facts) as facts:
+            self.assertEqual(self.runtime(adapter).visit(), 3)
+        self.assertEqual(facts.call_count, 1, "Collection rescanned CL history after recovery")
+
     def test_telemetry_deletion_changes_no_porter_or_application_truth(self):
         value = self.accept(1)[0]
         adapter = RecordingAdapter()

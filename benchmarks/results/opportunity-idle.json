@@ -1,0 +1,23 @@
+{
+  "schema": "PORTER-OPPORTUNITY-IDLE/1",
+  "results": [
+    {
+      "warm_processes": 1,
+      "startup_ms": 45.226,
+      "idle_seconds": 10,
+      "adapter_rss_kib": 15816,
+      "cpu_ticks_delta": 0,
+      "voluntary_switches_delta": 0,
+      "involuntary_switches_delta": 0
+    },
+    {
+      "warm_processes": 4,
+      "startup_ms": 87.704,
+      "idle_seconds": 10,
+      "adapter_rss_kib": 63108,
+      "cpu_ticks_delta": 0,
+      "voluntary_switches_delta": 0,
+      "involuntary_switches_delta": 0
+    }
+  ]
+}

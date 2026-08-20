@@ -48,6 +48,18 @@ class GenerationFiveResponsibility(unittest.TestCase):
         self.assertEqual(repeated["state"], "ALREADY_COLLECTED")
         self.assertEqual(repeated["collection"], collection["collection"])
 
+    def test_association_reservation_before_threshold_cannot_invent_cl(self):
+        with self.assertRaises(SimulatedInterruption):
+            collect_package(
+                self.b, self.value["package"], "recipient-host",
+                "association_reservation",
+            )
+        self.assertEqual(custody(self.b, self.value["package"])["current_custody"], "RECIPIENT_PORTER")
+        self.assertEqual(list((self.b / "collections" / "facts").glob("CL-*.json")), [])
+        fact = collect_package(self.b, self.value["package"], "recipient-host")
+        mapping = (self.b / "collections" / "by-package" / self.value["package"]).read_text().strip()
+        self.assertEqual(mapping, fact["collection"])
+
     def test_every_post_threshold_projection_failure_recovers(self):
         for point in ("host_projection", "association"):
             with self.subTest(point=point):
