@@ -11,6 +11,8 @@ import atexit
 from contextlib import contextmanager
 from pathlib import Path
 
+from .history import enumerate_candidate_facts
+
 
 SCHEMA = "PORTER-CANDIDATES/1"
 FULL = "full"
@@ -263,15 +265,7 @@ def inspect(
 
 
 def canonical_candidates(root: Path) -> list[tuple[str, str]]:
-    values = []
-    collected = root / "collections" / "by-package"
-    collected_ids = {path.name for path in collected.glob("PKG-*")}
-    for path in sorted((root / "acceptances").glob("PKG-*.json")):
-        value = json.loads(path.read_text())
-        package = value["package"]
-        if package["package"] not in collected_ids:
-            values.append((package["package"], package["kind"]))
-    return values
+    return enumerate_candidate_facts(root)
 
 
 def rebuild(root: Path) -> dict:

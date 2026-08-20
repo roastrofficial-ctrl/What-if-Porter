@@ -84,6 +84,19 @@ The pressure record is
 with consolidated measurements in
 [`benchmarks/results/candidate-projection-durability.json`](benchmarks/results/candidate-projection-durability.json).
 
+## Canonical History Enumeration
+
+Candidate reconstruction still derives only from canonical AC minus CL, but its
+scanner now uses two bounded directory enumerations and direct fact reads. No
+catalogue, manifest, completeness cursor or packed canonical representation was
+earned. The pathological 42.965-second APFS scan fell to about 2.2 seconds;
+Docker/Linux enumerated the same 10,000 independent facts in 134 ms and rebuilt
+the candidate projection in 141 ms. Existing fact identity, thresholds, replay,
+auditability, ordinary mutation and indexed attention are unchanged.
+
+See [`CANONICAL-HISTORY-ENUMERATION-CHECK.md`](CANONICAL-HISTORY-ENUMERATION-CHECK.md)
+and [`benchmarks/results/canonical-history-enumeration.json`](benchmarks/results/canonical-history-enumeration.json).
+
 ## What is Porter?
 
 Early packet networks briefly experimented with directly addressable
