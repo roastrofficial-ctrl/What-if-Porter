@@ -5,11 +5,13 @@ import json
 import os
 import shlex
 import signal
+import selectors
 import subprocess
+import threading
 import time
 from pathlib import Path
 
-from .custody import collect_package, recover_collections
+from .custody import collect_package, recover_collections_for_runtime
 from .candidates import inspect as inspect_candidates, settle as settle_candidate
 from .lodgement import atomic_json, atomic_text
 
@@ -41,7 +43,7 @@ class Adapter:
     describes application success or PORTER disposition.
     """
 
-    def __init__(self, command: str):
+    def __init__(self, command: str, startup_cancel: threading.Event | None = None):
         started = time.perf_counter_ns()
         self.process = subprocess.Popen(
             shlex.split(command),
@@ -51,7 +53,7 @@ class Adapter:
             bufsize=1,
         )
         assert self.process.stdout is not None
-        line = self._read_control("exited before becoming ready")
+        line = self._read_startup_control(startup_cancel)
         if not line:
             raise RuntimeError("application adapter exited before becoming ready")
         ready = json.loads(line)
@@ -61,6 +63,24 @@ class Adapter:
         ):
             raise RuntimeError("invalid application adapter readiness reply")
         self.startup_ms = (time.perf_counter_ns() - started) / 1e6
+
+    def _read_startup_control(self, cancel: threading.Event | None) -> str:
+        if cancel is None:
+            return self._read_control("exited before becoming ready")
+        assert self.process.stdout is not None
+        selector = selectors.DefaultSelector()
+        selector.register(self.process.stdout, selectors.EVENT_READ)
+        try:
+            while True:
+                if cancel.is_set():
+                    self.close(grace_seconds=0.05)
+                    raise RuntimeError("application adapter startup cancelled")
+                if selector.select(timeout=0.05):
+                    return self._read_control("exited before becoming ready")
+                if self.process.poll() is not None:
+                    raise RuntimeError("application adapter exited before becoming ready")
+        finally:
+            selector.close()
 
     def _read_control(self, empty_reason: str) -> str:
         assert self.process.stdout is not None
@@ -138,6 +158,8 @@ class HostRuntime:
         self.stopping = False
         self.sequence = 0
         self.recovering = True
+        self.recovery_collections: list[dict] = []
+        self.recovery_observation: dict | None = None
 
     def stop(self, *_args) -> None:
         self.stopping = True
@@ -153,8 +175,7 @@ class HostRuntime:
             offset += len(page)
         projected = set(packages)
         if self.recovering:
-            for path in self.ipc.joinpath("collections", "facts").glob("CL-*.json"):
-                fact = json.loads(path.read_text())
+            for fact in self.recovery_collections:
                 if fact.get("collector") == self.host:
                     package = fact["package"]
                     if not self.kinds or package.get("kind") in self.kinds:
@@ -199,7 +220,8 @@ class HostRuntime:
         visit_id = f"VISIT-{self.host}-{now_ms()}-{self.sequence}"
         self.sequence += 1
         if self.recovering:
-            recover_collections(self.ipc)
+            self.recovery_observation = recover_collections_for_runtime(self.ipc)
+            self.recovery_collections = self.recovery_observation["collections"]
         inspection_started = time.perf_counter_ns()
         selected = self.candidates()[: self.batch_size]
         inspection_ms = (time.perf_counter_ns() - inspection_started) / 1e6
@@ -325,6 +347,7 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--elastic-evidence-window", type=int, default=8)
     value.add_argument("--elastic-minimum-residence-ms", type=float, default=50)
     value.add_argument("--elastic-inspection-interval-ms", type=float, default=50)
+    value.add_argument("--elastic-acquisition-retry-ms", type=float, default=1000)
     publication = value.add_mutually_exclusive_group()
     publication.add_argument(
         "--serial-publication", dest="serial_publication", action="store_true"
@@ -348,9 +371,14 @@ def main() -> None:
         runtime = HostRuntime(adapter=Adapter(args.adapter), **common)
     elif args.elastic_capacity:
         from .opportunities import ElasticOpportunityRuntime
+        acquisition_cancel = threading.Event()
         runtime = ElasticOpportunityRuntime(
             adapters=[Adapter(args.adapter)],
-            adapter_factory=lambda: Adapter(args.adapter),
+            adapter_factory=lambda: Adapter(
+                args.adapter, startup_cancel=acquisition_cancel
+            ),
+            acquisition_cancel=acquisition_cancel,
+            acquisition_retry_ms=args.elastic_acquisition_retry_ms,
             maximum_adapters=args.max_inflight_offers,
             slow_offer_ms=args.elastic_slow_offer_ms,
             shed_after_ms=args.elastic_shed_after_ms,

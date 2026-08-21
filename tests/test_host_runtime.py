@@ -3,6 +3,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -11,6 +13,31 @@ from porter.daemon import Porter
 from porter.host_runtime import Adapter, HostRuntime
 from porter.protocol import package
 import porter.host_runtime as host_runtime
+
+
+class AdapterAcquisitionTest(unittest.TestCase):
+    def test_startup_cancellation_terminates_adapter_without_readiness(self):
+        with tempfile.TemporaryDirectory() as folder:
+            script = Path(folder) / "never_ready.py"
+            script.write_text("import time\ntime.sleep(60)\n")
+            cancel = threading.Event()
+            errors = []
+            thread = threading.Thread(
+                target=lambda: self._start_cancelled_adapter(script, cancel, errors)
+            )
+            began = time.perf_counter(); thread.start(); time.sleep(.05); cancel.set()
+            thread.join(.5)
+            self.assertFalse(thread.is_alive())
+            self.assertLess(time.perf_counter() - began, .6)
+            self.assertTrue(errors)
+            self.assertIn("startup cancelled", str(errors[0]))
+
+    @staticmethod
+    def _start_cancelled_adapter(script, cancel, errors):
+        try:
+            Adapter(f"{sys.executable} {script}", startup_cancel=cancel)
+        except BaseException as exc:
+            errors.append(exc)
 
 
 class RecordingAdapter:

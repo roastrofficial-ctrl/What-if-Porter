@@ -398,6 +398,89 @@ class OpportunitySchedulingTest(unittest.TestCase):
         self.assertEqual(len(list((self.root / "collections" / "facts").glob("CL-*.json"))), 1)
         restarted.close()
 
+    def test_adapter_acquisition_does_not_block_reaping(self):
+        self.accept(3)
+        offer_gate = threading.Event()
+        startup_gate = threading.Event()
+        def factory():
+            startup_gate.wait()
+            return GateAdapter()
+        runtime = ElasticOpportunityRuntime(
+            ipc=self.root, host="host", adapters=[GateAdapter(offer_gate)],
+            adapter_factory=factory, maximum_adapters=3,
+            slow_offer_ms=5, shed_after_ms=20,
+            kinds={"demo.work"}, batch_size=10, idle_ms=1,
+            journal=self.root / "acquisition.jsonl",
+        )
+        runtime.visit(); time.sleep(.007)
+        began = time.perf_counter(); runtime.visit()
+        self.assertLess(time.perf_counter() - began, .05)
+        self.assertEqual(len(runtime.starting), 1)
+        offer_gate.set()
+        self.wait_for(lambda: any(future.done() for future in runtime.inflight))
+        runtime.visit()
+        self.assertEqual(runtime.control_returns, 1)
+        self.assertEqual(len(runtime.starting), 1)
+        self.assertLessEqual(
+            len(runtime.inflight) + runtime.publication_in_progress + len(runtime.starting),
+            runtime.max_inflight_offers,
+        )
+        startup_gate.set()
+        self.wait_for(lambda: all(future.done() for future in runtime.starting))
+        runtime.visit()
+        self.assertIn(("GROW", 2), runtime.capacity_events)
+        runtime.drain(3); runtime.close()
+
+    def test_failed_acquisition_releases_only_operational_capacity(self):
+        self.accept(2)
+        offer_gate = threading.Event()
+        attempts = 0
+        def factory():
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise RuntimeError("startup failed")
+            return GateAdapter()
+        runtime = ElasticOpportunityRuntime(
+            ipc=self.root, host="host", adapters=[GateAdapter(offer_gate)],
+            adapter_factory=factory, maximum_adapters=2,
+            slow_offer_ms=5, shed_after_ms=20,
+            kinds={"demo.work"}, batch_size=10, idle_ms=1,
+            journal=self.root / "failed-acquisition.jsonl",
+        )
+        runtime.visit(); time.sleep(.007); runtime.visit()
+        self.wait_for(lambda: all(future.done() for future in runtime.starting))
+        runtime.visit()
+        self.assertEqual(len(runtime.starting), 0)
+        self.assertIn(("FAILED", 1), runtime.capacity_events)
+        self.assertEqual(len(runtime.adapters), 1)
+        self.assertEqual(len(list((self.root / "collections" / "facts").glob("CL-*.json"))), 1)
+        offer_gate.set(); runtime.drain(2); runtime.close()
+
+    def test_shutdown_cancels_start_without_durable_capacity_identity(self):
+        self.accept(2)
+        offer_gate = threading.Event()
+        cancel = threading.Event()
+        def factory():
+            cancel.wait()
+            raise RuntimeError("cancelled")
+        runtime = ElasticOpportunityRuntime(
+            ipc=self.root, host="host", adapters=[GateAdapter(offer_gate)],
+            adapter_factory=factory, acquisition_cancel=cancel,
+            maximum_adapters=2, slow_offer_ms=5, shed_after_ms=20,
+            kinds={"demo.work"}, batch_size=10, idle_ms=1,
+            journal=self.root / "cancel-acquisition.jsonl",
+        )
+        runtime.visit(); time.sleep(.007); runtime.visit()
+        self.assertEqual(len(runtime.starting), 1)
+        names = {path.name.lower() for path in self.root.glob("**/*") if path.is_file()}
+        self.assertFalse(any(word in name for name in names for word in
+                             ("starting", "capacity", "worker", "assigned", "pending")))
+        offer_gate.set()
+        began = time.perf_counter(); runtime.close(grace_seconds=.05)
+        self.assertLess(time.perf_counter() - began, .5)
+        self.assertTrue(cancel.is_set())
+
 
 if __name__ == "__main__":
     unittest.main()

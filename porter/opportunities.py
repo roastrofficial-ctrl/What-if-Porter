@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import queue
 import signal
+import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
-from .custody import collect_package, recover_collections
+from .custody import collect_package, recover_collections_for_runtime
 from .host_runtime import HostRuntime, append_json, now_ms
 from .lodgement import atomic_json, atomic_text
 
@@ -147,7 +148,8 @@ class BoundedOpportunityRuntime(HostRuntime):
 
     def visit(self) -> int:
         if self.recovering:
-            recover_collections(self.ipc)
+            self.recovery_observation = recover_collections_for_runtime(self.ipc)
+            self.recovery_collections = self.recovery_observation["collections"]
         returned = self._reap()
         if self.stopping:
             return returned
@@ -235,6 +237,8 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
                  evidence_window: int = 8,
                  minimum_capacity_residence_ms: float = 50,
                  inspection_interval_ms: float = 50,
+                 acquisition_cancel: threading.Event | None = None,
+                 acquisition_retry_ms: float = 1000,
                  **kwargs):
         adapters = kwargs.pop("adapters")
         if len(adapters) != 1:
@@ -244,7 +248,8 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
         if evidence_window < 1:
             raise ValueError("evidence window must be positive")
         if (slow_offer_ms < 0 or shed_after_ms < 0
-                or minimum_capacity_residence_ms < 0 or inspection_interval_ms < 0):
+                or minimum_capacity_residence_ms < 0 or inspection_interval_ms < 0
+                or acquisition_retry_ms < 0):
             raise ValueError("elastic timing values cannot be negative")
         super().__init__(
             *args, adapters=adapters, max_inflight_offers=maximum_adapters,
@@ -260,6 +265,11 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
         self.last_pressure_at = time.monotonic()
         self.last_capacity_change_at = self.last_pressure_at
         self.capacity_events: list[tuple[str, int]] = []
+        self.acquisition_cancel = acquisition_cancel or threading.Event()
+        self.acquisition_retry_ms = acquisition_retry_ms
+        self.last_acquisition_failure_at = float("-inf")
+        self.starting: dict[Future, float] = {}
+        self.startup_ms: list[float] = []
         self.candidate_snapshot: list[str] = []
         self.last_inspection_at = float("-inf")
         self.inspection_count = 0
@@ -292,10 +302,43 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
         return True
 
     def _reap(self) -> int:
+        self._reap_starting()
         returned = super()._reap()
         if len(self.offer_ms) > self.evidence_window:
             del self.offer_ms[:-self.evidence_window]
         return returned
+
+    def _reap_starting(self) -> None:
+        for future, began in list(self.starting.items()):
+            if not future.done():
+                continue
+            del self.starting[future]
+            try:
+                adapter = future.result()
+            except BaseException as exc:
+                self.operational_errors.append(("CAPACITY_ACQUISITION", exc))
+                self.capacity_events.append(("FAILED", len(self.adapters)))
+                self.last_acquisition_failure_at = time.monotonic()
+                continue
+            elapsed = (time.monotonic() - began) * 1000
+            self.startup_ms.append(elapsed)
+            if self.stopping:
+                adapter.close()
+                self.capacity_events.append(("CANCELLED", len(self.adapters)))
+                continue
+            self.adapters.append(adapter)
+            self.available.put(adapter)
+            self.available_count += 1
+            self.capacity_events.append(("GROW", len(self.adapters)))
+
+    @staticmethod
+    def _discard_late_adapter(future: Future) -> None:
+        if future.cancelled():
+            return
+        try:
+            future.result().close()
+        except BaseException:
+            pass
 
     def _slow_evidence(self) -> int:
         completed = sum(
@@ -319,17 +362,15 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
         )
 
     def _grow(self) -> None:
-        if len(self.adapters) >= self.maximum_adapters:
+        committed = len(self.adapters) + len(self.starting)
+        if committed >= self.maximum_adapters:
             return
-        try:
-            adapter = self.adapter_factory()
-        except BaseException as exc:
-            self.operational_errors.append(("CAPACITY_GROWTH", exc))
+        if ((time.monotonic() - self.last_acquisition_failure_at) * 1000
+                < self.acquisition_retry_ms):
             return
-        self.adapters.append(adapter)
-        self.available.put(adapter)
-        self.available_count += 1
-        self.capacity_events.append(("GROW", len(self.adapters)))
+        future = self.executor.submit(self.adapter_factory)
+        self.starting[future] = time.monotonic()
+        self.capacity_events.append(("START", committed + 1))
         self.last_capacity_change_at = time.monotonic()
 
     def _shed_one(self) -> None:
@@ -344,14 +385,16 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
 
     def visit(self) -> int:
         if self.recovering:
-            recover_collections(self.ipc)
+            self.recovery_observation = recover_collections_for_runtime(self.ipc)
+            self.recovery_collections = self.recovery_observation["collections"]
         returned = self._reap()
         if self.stopping:
             return returned
 
         now = time.monotonic()
         available_capacity = min(
-            self.max_inflight_offers - len(self.inflight), self.available_count
+            self.max_inflight_offers - len(self.inflight) - len(self.starting),
+            self.available_count,
         )
         if (
             not self.candidate_snapshot and available_capacity > 0
@@ -368,7 +411,7 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
             # One slow offer earns a second lane so it cannot monopolise the
             # Host. Each further lane requires proportionally more independent
             # recent/active evidence; one outlier cannot inflate the whole pool.
-            if self._slow_evidence() >= len(self.adapters):
+            if self._slow_evidence() >= len(self.adapters) + len(self.starting):
                 self._grow()
             elif (
                 len(self.adapters) > 1 and self._cheap_window()
@@ -383,7 +426,8 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
             self._shed_one()
 
         capacity = min(
-            self.max_inflight_offers - len(self.inflight), self.available_count
+            self.max_inflight_offers - len(self.inflight) - len(self.starting),
+            self.available_count,
         )
         visit_id = f"VISIT-{self.host}-{now_ms()}-{self.sequence}"
         self.sequence += 1
@@ -404,6 +448,17 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
             self.started_at[future] = time.monotonic()
         self.maximum_inflight = max(self.maximum_inflight, len(self.inflight))
         self.maximum_opportunities = max(
-            self.maximum_opportunities, len(self.inflight) + self.publication_in_progress
+            self.maximum_opportunities,
+            len(self.inflight) + self.publication_in_progress + len(self.starting),
         )
         return returned
+
+    def close(self, grace_seconds: float = 5.0) -> None:
+        self.stop()
+        self.acquisition_cancel.set()
+        self._reap_starting()
+        for future in self.starting:
+            if not future.cancel():
+                future.add_done_callback(self._discard_late_adapter)
+        self.starting.clear()
+        super().close(grace_seconds=grace_seconds)

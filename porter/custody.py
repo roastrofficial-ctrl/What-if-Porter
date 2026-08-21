@@ -121,6 +121,115 @@ def recover_collections(ipc) -> list[dict]:
     return recovered
 
 
+def _stat_signature(path: Path) -> list[int]:
+    value = path.stat()
+    return [value.st_size, value.st_mtime_ns]
+
+
+def _frontier_record(root: Path, fact_path: Path, value: dict) -> dict:
+    package_id = value["package"]["package"]
+    return {
+        "fact": _stat_signature(fact_path),
+        "package": package_id,
+        "collection": value["collection"],
+        "collector": value["collector"],
+        "package_kind": value["package"].get("kind"),
+        "collected": _stat_signature(root / "collected" / f"{package_id}.json"),
+        "association": _stat_signature(
+            root / "collections" / "by-package" / package_id
+        ),
+    }
+
+
+def _frontier_record_valid(root: Path, fact_path: Path, record: dict) -> bool:
+    try:
+        if record.get("fact") != _stat_signature(fact_path):
+            return False
+        package_id = record["package"]
+        if record.get("collected") != _stat_signature(
+            root / "collected" / f"{package_id}.json"
+        ):
+            return False
+        association = root / "collections" / "by-package" / package_id
+        if record.get("association") != _stat_signature(association):
+            return False
+        return association.read_text().strip() == record["collection"]
+    except (KeyError, OSError, TypeError, ValueError):
+        return False
+
+
+def recover_collections_for_runtime(ipc) -> dict:
+    """Audit disposable recovery progress, parsing only an exact extension.
+
+    Canonical CL facts remain authoritative. Any malformed frontier, missing old
+    fact, changed fact metadata, or changed required projection falls back to a
+    complete canonical reconstruction.
+    """
+    root = Path(ipc)
+    # Competing local Runtimes may recover simultaneously. Serialising the
+    # disposable audit prevents a stale frontier writer from replacing a newer
+    # exact extension; Package Collection locks remain the canonical boundary.
+    with locked_package(root, "RECOVERY-FRONTIER"):
+        return _recover_collections_for_runtime(root)
+
+
+def _recover_collections_for_runtime(root: Path) -> dict:
+    frontier_path = root / "collections" / "recovery" / "frontier.json"
+    fact_paths = {path.name: path for path in _facts(root)}
+    old_records = None
+    try:
+        frontier = json.loads(frontier_path.read_text())
+        if frontier.get("schema") == "PORTER-COLLECTION-RECOVERY-FRONTIER/1":
+            candidate = frontier.get("facts")
+            if isinstance(candidate, dict):
+                old_records = candidate
+    except (OSError, json.JSONDecodeError, TypeError):
+        pass
+
+    valid = old_records is not None and set(old_records).issubset(fact_paths)
+    if valid:
+        valid = all(
+            _frontier_record_valid(root, fact_paths[name], record)
+            for name, record in old_records.items()
+        )
+
+    records = dict(old_records) if valid else {}
+    names_to_parse = sorted(set(fact_paths) - set(records)) if valid else sorted(fact_paths)
+    mode = "WARM_AUDIT" if valid and not names_to_parse else (
+        "EXACT_EXTENSION" if valid else "FULL_RECONSTRUCTION"
+    )
+    for name in names_to_parse:
+        path = fact_paths[name]
+        value = json.loads(path.read_text())
+        with locked_package(root, value["package"]["package"]):
+            materialize(root, value)
+        records[name] = _frontier_record(root, path, value)
+
+    if not valid or names_to_parse:
+        atomic_json(frontier_path, {
+            "schema": "PORTER-COLLECTION-RECOVERY-FRONTIER/1",
+            "facts": records,
+        })
+
+    collections = [
+        {
+            "collection": record["collection"],
+            "collector": record["collector"],
+            "package": {
+                "package": record["package"],
+                "kind": record.get("package_kind"),
+            },
+        }
+        for _name, record in sorted(records.items())
+    ]
+    return {
+        "mode": mode,
+        "parsed_facts": len(names_to_parse),
+        "audited_facts": len(records) - len(names_to_parse),
+        "collections": collections,
+    }
+
+
 def custody(ipc, package_id: str) -> dict:
     root = Path(ipc)
     acceptance = root / "acceptances" / f"{package_id}.json"

@@ -20,7 +20,7 @@ from .carriage import (
     recover_acceptances,
     retain_evidence,
 )
-from .custody import recover_collections
+from .custody import recover_collections_for_runtime
 from .candidates import rebuild as rebuild_candidates
 from .introduction import Admission, AdmissionRefused
 from .ceremony import (
@@ -92,7 +92,7 @@ class Porter:
                 claimed.rename(target)
         recover(self.ipc)
         recover_acceptances(self.ipc)
-        recover_collections(self.ipc)
+        recover_collections_for_runtime(self.ipc)
         rebuild_candidates(self.ipc)
         self.admission = Admission(
             self.ipc, self.identity, relationships or {}, require_introductions

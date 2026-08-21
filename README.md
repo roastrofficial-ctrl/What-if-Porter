@@ -39,6 +39,10 @@ Attention-loop inspection decoupling is checked in
 [`HOST-RUNTIME-ATTENTION-INSPECTION-DECOUPLING-CHECK.md`](HOST-RUNTIME-ATTENTION-INSPECTION-DECOUPLING-CHECK.md).
 Canonical-publication and adapter-wait phase separation is checked in
 [`HOST-RUNTIME-PUBLICATION-WAIT-PHASE-SEPARATION-CHECK.md`](HOST-RUNTIME-PUBLICATION-WAIT-PHASE-SEPARATION-CHECK.md).
+Non-blocking elastic adapter acquisition is checked in
+[`HOST-RUNTIME-NONBLOCKING-CAPACITY-ACQUISITION-CHECK.md`](HOST-RUNTIME-NONBLOCKING-CAPACITY-ACQUISITION-CHECK.md).
+Large-history canonical recovery frontier behavior is checked in
+[`HOST-RUNTIME-CANONICAL-RECOVERY-FRONTIER-CHECK.md`](HOST-RUNTIME-CANONICAL-RECOVERY-FRONTIER-CHECK.md).
 
 PORTER/1 is semantically frozen. Its reproducible maturation measurements,
 10,000-item pressure results and accepted/rejected optimizations are documented

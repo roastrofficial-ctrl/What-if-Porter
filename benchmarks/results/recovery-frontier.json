@@ -1,0 +1,85 @@
+{
+  "schema": "PORTER-CANONICAL-RECOVERY-FRONTIER/1",
+  "results": [
+    {
+      "history": 1000,
+      "shape": "cold-no-frontier",
+      "mode": "FULL_RECONSTRUCTION",
+      "startup_ms": 11304.369,
+      "cpu_ms": 2434.083,
+      "parsed_facts": 1000,
+      "audited_facts": 0,
+      "rss_kib": 21696
+    },
+    {
+      "history": 1000,
+      "shape": "clean-warm-audit",
+      "mode": "WARM_AUDIT",
+      "startup_ms": 386.792,
+      "cpu_ms": 97.92,
+      "parsed_facts": 0,
+      "audited_facts": 1000,
+      "rss_kib": 21696
+    },
+    {
+      "history": 1001,
+      "shape": "exact-one-fact-extension",
+      "mode": "EXACT_EXTENSION",
+      "startup_ms": 263.484,
+      "cpu_ms": 71.183,
+      "parsed_facts": 1,
+      "audited_facts": 1000,
+      "rss_kib": 21888
+    },
+    {
+      "history": 1001,
+      "shape": "missing-projection-forced-full",
+      "mode": "FULL_RECONSTRUCTION",
+      "startup_ms": 1476.714,
+      "cpu_ms": 477.257,
+      "parsed_facts": 1001,
+      "audited_facts": 0,
+      "rss_kib": 23648
+    },
+    {
+      "history": 10000,
+      "shape": "cold-no-frontier",
+      "mode": "FULL_RECONSTRUCTION",
+      "startup_ms": 128484.979,
+      "cpu_ms": 25301.498,
+      "parsed_facts": 10000,
+      "audited_facts": 0,
+      "rss_kib": 57712
+    },
+    {
+      "history": 10000,
+      "shape": "clean-warm-audit",
+      "mode": "WARM_AUDIT",
+      "startup_ms": 3220.547,
+      "cpu_ms": 806.239,
+      "parsed_facts": 0,
+      "audited_facts": 10000,
+      "rss_kib": 62016
+    },
+    {
+      "history": 10001,
+      "shape": "exact-one-fact-extension",
+      "mode": "EXACT_EXTENSION",
+      "startup_ms": 2653.282,
+      "cpu_ms": 729.43,
+      "parsed_facts": 1,
+      "audited_facts": 10000,
+      "rss_kib": 70112
+    },
+    {
+      "history": 10001,
+      "shape": "missing-projection-forced-full",
+      "mode": "FULL_RECONSTRUCTION",
+      "startup_ms": 13111.493,
+      "cpu_ms": 4655.754,
+      "parsed_facts": 10001,
+      "audited_facts": 0,
+      "rss_kib": 90832
+    }
+  ]
+}

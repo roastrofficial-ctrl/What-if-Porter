@@ -1,0 +1,93 @@
+{
+  "schema": "PORTER-NONBLOCKING-CAPACITY-ACQUISITION/1",
+  "results": [
+    {
+      "shape": "one-45ms-capacity-acquisition",
+      "acquisition": "synchronous",
+      "attention_call_ms": 49.696
+    },
+    {
+      "shape": "one-45ms-capacity-acquisition",
+      "acquisition": "asynchronous",
+      "attention_call_ms": 0.099
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 10,
+      "acquisition": "synchronous",
+      "drain_ms": 2155.773,
+      "first_control_ms": 125.833,
+      "maximum_visit_ms": 112.82,
+      "visit_p99_ms": 90.281,
+      "peak_adapters": 4,
+      "maximum_committed_opportunities": 4,
+      "startup_median_ms": null,
+      "errors": 0
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 10,
+      "acquisition": "asynchronous",
+      "drain_ms": 2294.601,
+      "first_control_ms": 161.229,
+      "maximum_visit_ms": 148.068,
+      "visit_p99_ms": 76.3,
+      "peak_adapters": 4,
+      "maximum_committed_opportunities": 4,
+      "startup_median_ms": 56.153,
+      "errors": 0
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 100,
+      "acquisition": "synchronous",
+      "drain_ms": 3957.742,
+      "first_control_ms": 256.166,
+      "maximum_visit_ms": 152.612,
+      "visit_p99_ms": 28.036,
+      "peak_adapters": 4,
+      "maximum_committed_opportunities": 4,
+      "startup_median_ms": null,
+      "errors": 0
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 100,
+      "acquisition": "asynchronous",
+      "drain_ms": 3935.232,
+      "first_control_ms": 238.731,
+      "maximum_visit_ms": 134.324,
+      "visit_p99_ms": 26.652,
+      "peak_adapters": 4,
+      "maximum_committed_opportunities": 4,
+      "startup_median_ms": 53.071,
+      "errors": 0
+    },
+    {
+      "candidates": 20,
+      "adapter_delay_ms": 1000,
+      "acquisition": "synchronous",
+      "drain_ms": 5468.079,
+      "first_control_ms": 1039.3,
+      "maximum_visit_ms": 81.095,
+      "visit_p99_ms": 0.31,
+      "peak_adapters": 4,
+      "maximum_committed_opportunities": 4,
+      "startup_median_ms": null,
+      "errors": 0
+    },
+    {
+      "candidates": 20,
+      "adapter_delay_ms": 1000,
+      "acquisition": "asynchronous",
+      "drain_ms": 5472.212,
+      "first_control_ms": 1047.349,
+      "maximum_visit_ms": 43.535,
+      "visit_p99_ms": 0.342,
+      "peak_adapters": 4,
+      "maximum_committed_opportunities": 4,
+      "startup_median_ms": 47.651,
+      "errors": 0
+    }
+  ]
+}
