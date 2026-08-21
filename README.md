@@ -43,6 +43,9 @@ Non-blocking elastic adapter acquisition is checked in
 [`HOST-RUNTIME-NONBLOCKING-CAPACITY-ACQUISITION-CHECK.md`](HOST-RUNTIME-NONBLOCKING-CAPACITY-ACQUISITION-CHECK.md).
 Large-history canonical recovery frontier behavior is checked in
 [`HOST-RUNTIME-CANONICAL-RECOVERY-FRONTIER-CHECK.md`](HOST-RUNTIME-CANONICAL-RECOVERY-FRONTIER-CHECK.md).
+The rejected recovery-audit compaction and the closed research arc are recorded
+in [`HOST-RUNTIME-RECOVERY-AUDIT-COMPACTION-CHECK.md`](HOST-RUNTIME-RECOVERY-AUDIT-COMPACTION-CHECK.md)
+and [`HOST-RUNTIME-RESEARCH-SYNTHESIS.md`](HOST-RUNTIME-RESEARCH-SYNTHESIS.md).
 
 PORTER/1 is semantically frozen. Its reproducible maturation measurements,
 10,000-item pressure results and accepted/rejected optimizations are documented

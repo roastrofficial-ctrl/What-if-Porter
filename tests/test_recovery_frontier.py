@@ -112,6 +112,31 @@ class RecoveryFrontierTest(unittest.TestCase):
             (self.root / "collections" / "recovery" / "frontier.json").read_text()
         )["facts"]), 20)
 
+    def test_directory_fingerprint_cannot_replace_leaf_audit(self):
+        values = self.collect(4)
+        recover_collections_for_runtime(self.root)
+        directories = [
+            self.root / "collections" / "facts",
+            self.root / "collections" / "by-package",
+            self.root / "collected",
+        ]
+        root_fingerprint = [(path.stat().st_ino, path.stat().st_mtime_ns)
+                            for path in directories]
+        association = directories[1] / values[0]["package"]
+        original = association.read_text()
+        replacement = "CL-" + "0" * 32 + "\n"
+        self.assertEqual(len(original), len(replacement))
+        association.write_text(replacement)
+        self.assertEqual(
+            root_fingerprint,
+            [(path.stat().st_ino, path.stat().st_mtime_ns) for path in directories],
+        )
+        # The tempting O(1) directory shortcut says clean; the earned leaf audit
+        # detects the changed association and returns to canonical reconstruction.
+        value = recover_collections_for_runtime(self.root)
+        self.assertEqual(value["mode"], "FULL_RECONSTRUCTION")
+        self.assertEqual(association.read_text(), original)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,10 @@
+{
+  "schema": "PORTER-RECOVERY-AUDIT-COMPACTION/1",
+  "history": 1000,
+  "earned_leaf_audit_ms": 394.719,
+  "earned_leaf_audit_parsed_facts": 0,
+  "unsafe_root_audit_median_ms": 0.026125,
+  "unsafe_root_audit_claimed_clean_after_leaf_corruption": true,
+  "earned_audit_after_corruption": "FULL_RECONSTRUCTION",
+  "earned_audit_repaired_association": true
+}
