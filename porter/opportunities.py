@@ -18,10 +18,11 @@ class BoundedOpportunityRuntime(HostRuntime):
     """
 
     def __init__(self, *args, adapters: list, max_inflight_offers: int,
-                 scan_missing_collections: bool = False, **kwargs):
+                 scan_missing_collections: bool = False,
+                 allow_partial_pool: bool = False, **kwargs):
         if max_inflight_offers < 1:
             raise ValueError("max_inflight_offers must be positive")
-        if len(adapters) < max_inflight_offers:
+        if len(adapters) < max_inflight_offers and not allow_partial_pool:
             raise ValueError("one adapter instance is required per inflight offer")
         super().__init__(*args, adapter=adapters[0], **kwargs)
         self.adapters = adapters
@@ -35,6 +36,9 @@ class BoundedOpportunityRuntime(HostRuntime):
             max_workers=max_inflight_offers, thread_name_prefix="porter-opportunity"
         )
         self.inflight: dict[Future, tuple[str, object]] = {}
+        self.started_at: dict[Future, float] = {}
+        self.offer_ms: list[float] = []
+        self.dispatch_began_at: dict[str, float] = {}
         self.submitted: set[str] = set()
         self.control_returns = 0
         self.operational_errors: list[tuple[str, BaseException]] = []
@@ -54,8 +58,12 @@ class BoundedOpportunityRuntime(HostRuntime):
             "collection_ms": round(collection_ms, 3),
         })
         dispatch_started = time.perf_counter_ns()
+        self.dispatch_began_at[package_id] = time.monotonic()
         adapter.dispatch(dispatch_id, collection)
         dispatch_ms = (time.perf_counter_ns() - dispatch_started) / 1e6
+        # Capacity pressure is application control latency, not the following
+        # local marker publication or the cadence at which the visit reaps it.
+        self.dispatch_began_at.pop(package_id, None)
         atomic_json(
             self.ipc / "host-runtime" / "dispatch-returned" / f"{package_id}.json",
             {
@@ -71,7 +79,7 @@ class BoundedOpportunityRuntime(HostRuntime):
             "collection": collection["collection"],
             "dispatch_ms": round(dispatch_ms, 3),
         })
-        return collection
+        return collection, dispatch_ms
 
     def _reap(self) -> int:
         returned = 0
@@ -79,14 +87,18 @@ class BoundedOpportunityRuntime(HostRuntime):
             if not future.done():
                 continue
             del self.inflight[future]
+            started_at = self.started_at.pop(future)
             self.submitted.discard(package_id)
             try:
-                future.result()
+                _collection, dispatch_ms = future.result()
+                self.offer_ms.append(dispatch_ms)
+                self.dispatch_began_at.pop(package_id, None)
                 returned += 1
                 self.control_returns += 1
                 self.available.put(adapter)
                 self.available_count += 1
             except BaseException as exc:
+                self.dispatch_began_at.pop(package_id, None)
                 self.operational_errors.append((package_id, exc))
                 adapter.close()
         return returned
@@ -118,6 +130,7 @@ class BoundedOpportunityRuntime(HostRuntime):
                 self._offer, package_id, adapter, dispatch_id
             )
             self.inflight[future] = (package_id, adapter)
+            self.started_at[future] = time.monotonic()
         self.maximum_inflight = max(self.maximum_inflight, len(self.inflight))
         return returned
 
@@ -167,3 +180,138 @@ class BoundedOpportunityRuntime(HostRuntime):
                     time.sleep(self.idle_ms / 1000)
         finally:
             self.close()
+
+
+class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
+    """Locally elastic variant; only an executing visit may resize capacity."""
+
+    def __init__(self, *args, adapter_factory, maximum_adapters: int,
+                 slow_offer_ms: float = 5, shed_after_ms: float = 1000,
+                 evidence_window: int = 8,
+                 minimum_capacity_residence_ms: float = 50,
+                 **kwargs):
+        adapters = kwargs.pop("adapters")
+        if len(adapters) != 1:
+            raise ValueError("elastic runtime starts with exactly one warm adapter")
+        if maximum_adapters < 1:
+            raise ValueError("maximum adapters must be positive")
+        if evidence_window < 1:
+            raise ValueError("evidence window must be positive")
+        if slow_offer_ms < 0 or shed_after_ms < 0 or minimum_capacity_residence_ms < 0:
+            raise ValueError("elastic timing values cannot be negative")
+        super().__init__(
+            *args, adapters=adapters, max_inflight_offers=maximum_adapters,
+            allow_partial_pool=True, **kwargs
+        )
+        self.adapter_factory = adapter_factory
+        self.maximum_adapters = maximum_adapters
+        self.slow_offer_ms = slow_offer_ms
+        self.shed_after_ms = shed_after_ms
+        self.evidence_window = evidence_window
+        self.minimum_capacity_residence_ms = minimum_capacity_residence_ms
+        self.last_pressure_at = time.monotonic()
+        self.last_capacity_change_at = self.last_pressure_at
+        self.capacity_events: list[tuple[str, int]] = []
+
+    def _reap(self) -> int:
+        returned = super()._reap()
+        if len(self.offer_ms) > self.evidence_window:
+            del self.offer_ms[:-self.evidence_window]
+        return returned
+
+    def _slow_evidence(self) -> int:
+        completed = sum(
+            value >= self.slow_offer_ms
+            for value in self.offer_ms[-self.evidence_window:]
+        )
+        now = time.monotonic()
+        active = sum(
+            began is not None and (now - began) * 1000 >= self.slow_offer_ms
+            for package_id, _adapter in self.inflight.values()
+            for began in [self.dispatch_began_at.get(package_id)]
+        )
+        return completed + active
+
+    def _cheap_window(self) -> bool:
+        recent = self.offer_ms[-self.evidence_window:]
+        return (
+            len(recent) == self.evidence_window
+            and all(value < self.slow_offer_ms for value in recent)
+            and not self.dispatch_began_at
+        )
+
+    def _grow(self) -> None:
+        if len(self.adapters) >= self.maximum_adapters:
+            return
+        try:
+            adapter = self.adapter_factory()
+        except BaseException as exc:
+            self.operational_errors.append(("CAPACITY_GROWTH", exc))
+            return
+        self.adapters.append(adapter)
+        self.available.put(adapter)
+        self.available_count += 1
+        self.capacity_events.append(("GROW", len(self.adapters)))
+        self.last_capacity_change_at = time.monotonic()
+
+    def _shed_one(self) -> None:
+        if len(self.adapters) <= 1 or self.available_count <= 1:
+            return
+        adapter = self.available.get()
+        self.available_count -= 1
+        self.adapters.remove(adapter)
+        adapter.close()
+        self.capacity_events.append(("SHED", len(self.adapters)))
+        self.last_capacity_change_at = time.monotonic()
+
+    def visit(self) -> int:
+        if self.recovering:
+            recover_collections(self.ipc)
+            self.recovering = False
+        returned = self._reap()
+        if self.stopping:
+            return returned
+
+        selected = [
+            package_id for package_id in self.candidates()
+            if package_id not in self.submitted
+        ]
+        pressure = bool(selected) and (
+            len(selected) > self.available_count or bool(self.inflight)
+        )
+        if pressure:
+            self.last_pressure_at = time.monotonic()
+            # One slow offer earns a second lane so it cannot monopolise the
+            # Host. Each further lane requires proportionally more independent
+            # recent/active evidence; one outlier cannot inflate the whole pool.
+            if self._slow_evidence() >= len(self.adapters):
+                self._grow()
+            elif (
+                len(self.adapters) > 1 and self._cheap_window()
+                and (time.monotonic() - self.last_capacity_change_at) * 1000
+                    >= self.minimum_capacity_residence_ms
+            ):
+                self._shed_one()
+        elif (
+            not selected and not self.inflight and len(self.adapters) > 1
+            and (time.monotonic() - self.last_pressure_at) * 1000 >= self.shed_after_ms
+        ):
+            self._shed_one()
+
+        capacity = min(
+            self.max_inflight_offers - len(self.inflight), self.available_count
+        )
+        visit_id = f"VISIT-{self.host}-{now_ms()}-{self.sequence}"
+        self.sequence += 1
+        for index, package_id in enumerate(selected[:capacity], 1):
+            adapter = self.available.get()
+            self.available_count -= 1
+            dispatch_id = f"{visit_id}:{index}"
+            self.submitted.add(package_id)
+            future = self.executor.submit(
+                self._offer, package_id, adapter, dispatch_id
+            )
+            self.inflight[future] = (package_id, adapter)
+            self.started_at[future] = time.monotonic()
+        self.maximum_inflight = max(self.maximum_inflight, len(self.inflight))
+        return returned

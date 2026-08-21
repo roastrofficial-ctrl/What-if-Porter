@@ -1,0 +1,187 @@
+{
+  "schema": "PORTER-ELASTIC-OPPORTUNITY-CAPACITY/1",
+  "results": [
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 0,
+      "scheduling": "serial",
+      "collection": "direct-association",
+      "drain_ms": 3094.391,
+      "cpu_ms": 706.056,
+      "throughput_per_s": 32.32,
+      "first_control_ms": 71.593,
+      "last_control_ms": 3082.596,
+      "cl_to_offer_median_ms": 16.973,
+      "cl_to_offer_p99_ms": 31.141,
+      "maximum_inflight": 1,
+      "operational_errors": 0,
+      "rss_kib": 25440
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 0,
+      "scheduling": "bounded-4",
+      "collection": "direct-association",
+      "drain_ms": 1107.264,
+      "cpu_ms": 490.818,
+      "throughput_per_s": 90.31,
+      "first_control_ms": 35.89,
+      "last_control_ms": 1102.867,
+      "cl_to_offer_median_ms": 9.354,
+      "cl_to_offer_p99_ms": 29.083,
+      "maximum_inflight": 4,
+      "operational_errors": 0,
+      "rss_kib": 26336
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 0,
+      "scheduling": "elastic-1-to-4",
+      "drain_ms": 3085.431,
+      "throughput_per_s": 32.41,
+      "peak_adapters": 1,
+      "final_adapters_after_idle": 1,
+      "capacity_events": [],
+      "startup_ms_per_growth": 45,
+      "operational_errors": 0
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 10,
+      "scheduling": "serial",
+      "collection": "direct-association",
+      "drain_ms": 5185.865,
+      "cpu_ms": 1020.221,
+      "throughput_per_s": 19.28,
+      "first_control_ms": 54.706,
+      "last_control_ms": 5156.87,
+      "cl_to_offer_median_ms": 21.369,
+      "cl_to_offer_p99_ms": 37.683,
+      "maximum_inflight": 1,
+      "operational_errors": 0,
+      "rss_kib": 26672
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 10,
+      "scheduling": "bounded-4",
+      "collection": "direct-association",
+      "drain_ms": 2032.013,
+      "cpu_ms": 792.621,
+      "throughput_per_s": 49.21,
+      "first_control_ms": 160.562,
+      "last_control_ms": 2019.378,
+      "cl_to_offer_median_ms": 12.19,
+      "cl_to_offer_p99_ms": 148.984,
+      "maximum_inflight": 4,
+      "operational_errors": 0,
+      "rss_kib": 26672
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 10,
+      "scheduling": "elastic-1-to-4",
+      "drain_ms": 1649.76,
+      "throughput_per_s": 60.61,
+      "peak_adapters": 4,
+      "final_adapters_after_idle": 1,
+      "capacity_events": [
+        [
+          "GROW",
+          2
+        ],
+        [
+          "GROW",
+          3
+        ],
+        [
+          "GROW",
+          4
+        ],
+        [
+          "SHED",
+          3
+        ],
+        [
+          "SHED",
+          2
+        ],
+        [
+          "SHED",
+          1
+        ]
+      ],
+      "startup_ms_per_growth": 45,
+      "operational_errors": 0
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 100,
+      "scheduling": "serial",
+      "collection": "direct-association",
+      "drain_ms": 14788.274,
+      "cpu_ms": 1199.926,
+      "throughput_per_s": 6.76,
+      "first_control_ms": 136.79,
+      "last_control_ms": 14758.541,
+      "cl_to_offer_median_ms": 22.614,
+      "cl_to_offer_p99_ms": 31.493,
+      "maximum_inflight": 1,
+      "operational_errors": 0,
+      "rss_kib": 26672
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 100,
+      "scheduling": "bounded-4",
+      "collection": "direct-association",
+      "drain_ms": 4182.525,
+      "cpu_ms": 1014.365,
+      "throughput_per_s": 23.91,
+      "first_control_ms": 247.657,
+      "last_control_ms": 4155.386,
+      "cl_to_offer_median_ms": 13.543,
+      "cl_to_offer_p99_ms": 40.298,
+      "maximum_inflight": 4,
+      "operational_errors": 0,
+      "rss_kib": 26672
+    },
+    {
+      "candidates": 100,
+      "adapter_delay_ms": 100,
+      "scheduling": "elastic-1-to-4",
+      "drain_ms": 3830.887,
+      "throughput_per_s": 26.1,
+      "peak_adapters": 4,
+      "final_adapters_after_idle": 1,
+      "capacity_events": [
+        [
+          "GROW",
+          2
+        ],
+        [
+          "GROW",
+          3
+        ],
+        [
+          "GROW",
+          4
+        ],
+        [
+          "SHED",
+          3
+        ],
+        [
+          "SHED",
+          2
+        ],
+        [
+          "SHED",
+          1
+        ]
+      ],
+      "startup_ms_per_growth": 45,
+      "operational_errors": 0
+    }
+  ]
+}

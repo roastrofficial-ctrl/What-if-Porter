@@ -1,0 +1,277 @@
+{
+  "schema": "PORTER-ELASTIC-MIXED-LATENCY/1",
+  "results": [
+    {
+      "workload": "isolated-slow",
+      "policy": "single-sample",
+      "items": 60,
+      "drain_ms": 847.761,
+      "peak_adapters": 3,
+      "growths": 2,
+      "sheds": 2,
+      "final_adapters": 1,
+      "capacity_events": [
+        [
+          "GROW",
+          2
+        ],
+        [
+          "GROW",
+          3
+        ],
+        [
+          "SHED",
+          2
+        ],
+        [
+          "SHED",
+          1
+        ]
+      ],
+      "errors": 0
+    },
+    {
+      "workload": "isolated-slow",
+      "policy": "windowed-hysteresis",
+      "items": 60,
+      "drain_ms": 1066.866,
+      "peak_adapters": 2,
+      "growths": 1,
+      "sheds": 1,
+      "final_adapters": 1,
+      "capacity_events": [
+        [
+          "GROW",
+          2
+        ],
+        [
+          "SHED",
+          1
+        ]
+      ],
+      "errors": 0
+    },
+    {
+      "workload": "alternating",
+      "policy": "single-sample",
+      "items": 60,
+      "drain_ms": 860.323,
+      "peak_adapters": 4,
+      "growths": 3,
+      "sheds": 3,
+      "final_adapters": 1,
+      "capacity_events": [
+        [
+          "GROW",
+          2
+        ],
+        [
+          "GROW",
+          3
+        ],
+        [
+          "GROW",
+          4
+        ],
+        [
+          "SHED",
+          3
+        ],
+        [
+          "SHED",
+          2
+        ],
+        [
+          "SHED",
+          1
+        ]
+      ],
+      "errors": 0
+    },
+    {
+      "workload": "alternating",
+      "policy": "windowed-hysteresis",
+      "items": 60,
+      "drain_ms": 853.813,
+      "peak_adapters": 4,
+      "growths": 3,
+      "sheds": 3,
+      "final_adapters": 1,
+      "capacity_events": [
+        [
+          "GROW",
+          2
+        ],
+        [
+          "GROW",
+          3
+        ],
+        [
+          "GROW",
+          4
+        ],
+        [
+          "SHED",
+          3
+        ],
+        [
+          "SHED",
+          2
+        ],
+        [
+          "SHED",
+          1
+        ]
+      ],
+      "errors": 0
+    },
+    {
+      "workload": "clustered",
+      "policy": "single-sample",
+      "items": 60,
+      "drain_ms": 1039.728,
+      "peak_adapters": 4,
+      "growths": 3,
+      "sheds": 3,
+      "final_adapters": 1,
+      "capacity_events": [
+        [
+          "GROW",
+          2
+        ],
+        [
+          "GROW",
+          3
+        ],
+        [
+          "GROW",
+          4
+        ],
+        [
+          "SHED",
+          3
+        ],
+        [
+          "SHED",
+          2
+        ],
+        [
+          "SHED",
+          1
+        ]
+      ],
+      "errors": 0
+    },
+    {
+      "workload": "clustered",
+      "policy": "windowed-hysteresis",
+      "items": 60,
+      "drain_ms": 1081.117,
+      "peak_adapters": 4,
+      "growths": 3,
+      "sheds": 3,
+      "final_adapters": 1,
+      "capacity_events": [
+        [
+          "GROW",
+          2
+        ],
+        [
+          "GROW",
+          3
+        ],
+        [
+          "GROW",
+          4
+        ],
+        [
+          "SHED",
+          3
+        ],
+        [
+          "SHED",
+          2
+        ],
+        [
+          "SHED",
+          1
+        ]
+      ],
+      "errors": 0
+    },
+    {
+      "workload": "sustained-slow",
+      "policy": "single-sample",
+      "items": 60,
+      "drain_ms": 1148.372,
+      "peak_adapters": 4,
+      "growths": 3,
+      "sheds": 3,
+      "final_adapters": 1,
+      "capacity_events": [
+        [
+          "GROW",
+          2
+        ],
+        [
+          "GROW",
+          3
+        ],
+        [
+          "GROW",
+          4
+        ],
+        [
+          "SHED",
+          3
+        ],
+        [
+          "SHED",
+          2
+        ],
+        [
+          "SHED",
+          1
+        ]
+      ],
+      "errors": 0
+    },
+    {
+      "workload": "sustained-slow",
+      "policy": "windowed-hysteresis",
+      "items": 60,
+      "drain_ms": 1167.916,
+      "peak_adapters": 4,
+      "growths": 3,
+      "sheds": 3,
+      "final_adapters": 1,
+      "capacity_events": [
+        [
+          "GROW",
+          2
+        ],
+        [
+          "GROW",
+          3
+        ],
+        [
+          "GROW",
+          4
+        ],
+        [
+          "SHED",
+          3
+        ],
+        [
+          "SHED",
+          2
+        ],
+        [
+          "SHED",
+          1
+        ]
+      ],
+      "errors": 0
+    }
+  ]
+}

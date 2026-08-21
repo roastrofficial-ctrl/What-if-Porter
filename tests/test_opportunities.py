@@ -6,7 +6,7 @@ from pathlib import Path
 
 from porter.daemon import Porter
 from porter.host_runtime import HostRuntime
-from porter.opportunities import BoundedOpportunityRuntime
+from porter.opportunities import BoundedOpportunityRuntime, ElasticOpportunityRuntime
 from porter.protocol import package
 
 
@@ -28,6 +28,21 @@ class GateAdapter:
     def close(self, grace_seconds=0):
         if self.gate is not None:
             self.gate.set()
+
+
+class PatternAdapter(GateAdapter):
+    def __init__(self, delays_ms):
+        super().__init__()
+        self.delays_ms = delays_ms
+
+    def dispatch(self, dispatch_id, collection):
+        self.collections.append(collection)
+        number = collection["package"]["payload"]["n"]
+        delay = self.delays_ms[number]
+        if delay:
+            time.sleep(delay / 1000)
+        return {"contract": "PORTER-HOST-ADAPTER/1", "dispatch": dispatch_id,
+                "runtime_observation": "ADAPTER_RETURNED_CONTROL"}
 
 
 class OpportunitySchedulingTest(unittest.TestCase):
@@ -140,6 +155,112 @@ class OpportunitySchedulingTest(unittest.TestCase):
         while runtime.inflight:
             runtime.visit(); time.sleep(.002)
         runtime.close()
+
+    def elastic(self, factory, first, maximum=4, slow_ms=15, shed_ms=20):
+        return ElasticOpportunityRuntime(
+            ipc=self.root, host="host", adapters=[first],
+            adapter_factory=factory, maximum_adapters=maximum,
+            slow_offer_ms=slow_ms, shed_after_ms=shed_ms,
+            kinds={"demo.work"}, batch_size=10, idle_ms=1,
+            journal=self.root / "elastic.jsonl",
+        )
+
+    def test_arrival_alone_cannot_create_elastic_capacity(self):
+        created = []
+        def factory():
+            created.append(True)
+            return GateAdapter()
+        runtime = self.elastic(factory, GateAdapter())
+        self.accept(10)
+        time.sleep(.03)
+        self.assertEqual(len(runtime.adapters), 1)
+        self.assertEqual(created, [])
+        runtime.close()
+
+    def test_cheap_work_does_not_earn_growth(self):
+        self.accept(20)
+        runtime = self.elastic(GateAdapter, GateAdapter(), slow_ms=20)
+        self.assertEqual(runtime.drain(20), 20)
+        self.assertEqual(runtime.capacity_events, [])
+        self.assertEqual(len(runtime.adapters), 1)
+        runtime.close()
+
+    def test_slow_pressure_grows_then_local_idleness_sheds(self):
+        self.accept(12)
+        runtime = self.elastic(
+            lambda: GateAdapter(delay=.03), GateAdapter(delay=.03),
+            slow_ms=10, shed_ms=10,
+        )
+        runtime.visit()
+        time.sleep(.012)
+        deadline = time.monotonic() + 2
+        while runtime.control_returns < 12 and time.monotonic() < deadline:
+            runtime.visit()
+            time.sleep(.002)
+        self.assertEqual(runtime.control_returns, 12)
+        self.assertTrue(any(event == "GROW" for event, _ in runtime.capacity_events))
+        self.assertGreater(runtime.maximum_inflight, 1)
+        time.sleep(.012)
+        while len(runtime.adapters) > 1:
+            runtime.visit()
+        self.assertEqual(len(runtime.adapters), 1)
+        self.assertEqual(runtime.capacity_events[-1], ("SHED", 1))
+        runtime.close()
+
+    def pattern_runtime(self, delays, residence_ms=5):
+        return self.elastic(
+            lambda: PatternAdapter(delays), PatternAdapter(delays),
+            slow_ms=5, shed_ms=5,
+        ) if residence_ms == 50 else ElasticOpportunityRuntime(
+            ipc=self.root, host="host", adapters=[PatternAdapter(delays)],
+            adapter_factory=lambda: PatternAdapter(delays), maximum_adapters=4,
+            slow_offer_ms=5, shed_after_ms=5, evidence_window=8,
+            minimum_capacity_residence_ms=residence_ms,
+            kinds={"demo.work"}, batch_size=100, idle_ms=1,
+            journal=self.root / "mixed.jsonl",
+        )
+
+    def test_one_slow_outlier_cannot_inflate_entire_pool(self):
+        delays = [30] + [0] * 31
+        self.accept(len(delays))
+        runtime = self.pattern_runtime(delays)
+        runtime.drain(len(delays))
+        peak = max([1, *(capacity for event, capacity in runtime.capacity_events
+                        if event == "GROW")])
+        self.assertEqual(peak, 2)
+        runtime.close()
+
+    def test_clustered_slow_work_grows_and_trailing_cheap_work_sheds(self):
+        delays = [0] * 12 + [30] * 12 + [0] * 24
+        self.accept(len(delays))
+        runtime = self.pattern_runtime(delays)
+        runtime.drain(len(delays))
+        self.assertIn(("GROW", 4), runtime.capacity_events)
+        time.sleep(.006)
+        while len(runtime.adapters) > 1:
+            runtime.visit()
+        self.assertEqual(runtime.capacity_events[-1], ("SHED", 1))
+        runtime.close()
+
+    def test_restart_forgets_mixed_latency_evidence(self):
+        delays = [30] * 8
+        self.accept(8)
+        runtime = self.pattern_runtime(delays)
+        runtime.drain(8)
+        self.assertGreater(len(runtime.adapters), 1)
+        runtime.close()
+        more = [0] * 4
+        start = 8
+        for number in range(start, start + len(more)):
+            value = package("sender", "host", "demo.work", {"n": number})
+            self.porter.deposit(value)
+        all_delays = delays + more
+        restarted = self.pattern_runtime(all_delays)
+        self.assertEqual(len(restarted.adapters), 1)
+        self.assertEqual(restarted.offer_ms, [])
+        restarted.drain(4)
+        self.assertEqual(restarted.capacity_events, [])
+        restarted.close()
 
 
 if __name__ == "__main__":

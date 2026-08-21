@@ -316,6 +316,11 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--journal")
     value.add_argument("--once", action="store_true")
     value.add_argument("--max-inflight-offers", type=int, default=1)
+    value.add_argument("--elastic-capacity", action="store_true")
+    value.add_argument("--elastic-slow-offer-ms", type=float, default=5)
+    value.add_argument("--elastic-shed-after-ms", type=float, default=1000)
+    value.add_argument("--elastic-evidence-window", type=int, default=8)
+    value.add_argument("--elastic-minimum-residence-ms", type=float, default=50)
     return value
 
 
@@ -329,6 +334,18 @@ def main() -> None:
     }
     if args.max_inflight_offers == 1:
         runtime = HostRuntime(adapter=Adapter(args.adapter), **common)
+    elif args.elastic_capacity:
+        from .opportunities import ElasticOpportunityRuntime
+        runtime = ElasticOpportunityRuntime(
+            adapters=[Adapter(args.adapter)],
+            adapter_factory=lambda: Adapter(args.adapter),
+            maximum_adapters=args.max_inflight_offers,
+            slow_offer_ms=args.elastic_slow_offer_ms,
+            shed_after_ms=args.elastic_shed_after_ms,
+            evidence_window=args.elastic_evidence_window,
+            minimum_capacity_residence_ms=args.elastic_minimum_residence_ms,
+            **common,
+        )
     else:
         if args.max_inflight_offers < 1:
             raise ValueError("max inflight offers must be positive")
