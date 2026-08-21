@@ -321,6 +321,7 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--elastic-shed-after-ms", type=float, default=1000)
     value.add_argument("--elastic-evidence-window", type=int, default=8)
     value.add_argument("--elastic-minimum-residence-ms", type=float, default=50)
+    value.add_argument("--elastic-inspection-interval-ms", type=float, default=50)
     return value
 
 
@@ -344,6 +345,7 @@ def main() -> None:
             shed_after_ms=args.elastic_shed_after_ms,
             evidence_window=args.elastic_evidence_window,
             minimum_capacity_residence_ms=args.elastic_minimum_residence_ms,
+            inspection_interval_ms=args.elastic_inspection_interval_ms,
             **common,
         )
     else:

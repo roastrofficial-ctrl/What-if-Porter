@@ -35,6 +35,8 @@ Its locally causal elasticity follow-up is documented in
 [`HOST-RUNTIME-ELASTIC-OPPORTUNITY-CAPACITY-CHECK.md`](HOST-RUNTIME-ELASTIC-OPPORTUNITY-CAPACITY-CHECK.md).
 Mixed-latency stability and hysteresis are checked in
 [`HOST-RUNTIME-ELASTIC-MIXED-LATENCY-CHECK.md`](HOST-RUNTIME-ELASTIC-MIXED-LATENCY-CHECK.md).
+Attention-loop inspection decoupling is checked in
+[`HOST-RUNTIME-ATTENTION-INSPECTION-DECOUPLING-CHECK.md`](HOST-RUNTIME-ATTENTION-INSPECTION-DECOUPLING-CHECK.md).
 
 PORTER/1 is semantically frozen. Its reproducible maturation measurements,
 10,000-item pressure results and accepted/rejected optimizations are documented

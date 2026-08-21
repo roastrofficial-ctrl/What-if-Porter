@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import queue
 import signal
 import time
@@ -189,6 +190,7 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
                  slow_offer_ms: float = 5, shed_after_ms: float = 1000,
                  evidence_window: int = 8,
                  minimum_capacity_residence_ms: float = 50,
+                 inspection_interval_ms: float = 50,
                  **kwargs):
         adapters = kwargs.pop("adapters")
         if len(adapters) != 1:
@@ -197,7 +199,8 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
             raise ValueError("maximum adapters must be positive")
         if evidence_window < 1:
             raise ValueError("evidence window must be positive")
-        if slow_offer_ms < 0 or shed_after_ms < 0 or minimum_capacity_residence_ms < 0:
+        if (slow_offer_ms < 0 or shed_after_ms < 0
+                or minimum_capacity_residence_ms < 0 or inspection_interval_ms < 0):
             raise ValueError("elastic timing values cannot be negative")
         super().__init__(
             *args, adapters=adapters, max_inflight_offers=maximum_adapters,
@@ -209,9 +212,40 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
         self.shed_after_ms = shed_after_ms
         self.evidence_window = evidence_window
         self.minimum_capacity_residence_ms = minimum_capacity_residence_ms
+        self.inspection_interval_ms = inspection_interval_ms
         self.last_pressure_at = time.monotonic()
         self.last_capacity_change_at = self.last_pressure_at
         self.capacity_events: list[tuple[str, int]] = []
+        self.candidate_snapshot: list[str] = []
+        self.last_inspection_at = float("-inf")
+        self.inspection_count = 0
+        self.inspection_ms = 0.0
+
+    def _refresh_snapshot(self) -> None:
+        began = time.perf_counter_ns()
+        self.candidate_snapshot = [
+            package_id for package_id in self.candidates()
+            if package_id not in self.submitted
+        ]
+        self.inspection_ms += (time.perf_counter_ns() - began) / 1e6
+        self.inspection_count += 1
+        self.last_inspection_at = time.monotonic()
+
+    def _still_candidate(self, package_id: str) -> bool:
+        """Cheaply revalidate cached opportunity without re-enumerating."""
+        if package_id in self.submitted:
+            return False
+        if (self.ipc / "host-runtime" / "dispatch-returned" / f"{package_id}.json").exists():
+            return False
+        acceptance = self.ipc / "acceptances" / f"{package_id}.json"
+        if not acceptance.exists():
+            return False
+        canonical = json.loads(acceptance.read_text())["package"]
+        if self.kinds and canonical.get("kind") not in self.kinds:
+            return False
+        if (self.ipc / "collections" / "by-package" / package_id).exists():
+            return False
+        return True
 
     def _reap(self) -> int:
         returned = super()._reap()
@@ -272,12 +306,18 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
         if self.stopping:
             return returned
 
-        selected = [
-            package_id for package_id in self.candidates()
-            if package_id not in self.submitted
-        ]
-        pressure = bool(selected) and (
-            len(selected) > self.available_count or bool(self.inflight)
+        now = time.monotonic()
+        available_capacity = min(
+            self.max_inflight_offers - len(self.inflight), self.available_count
+        )
+        if (
+            not self.candidate_snapshot and available_capacity > 0
+            and (now - self.last_inspection_at) * 1000 >= self.inspection_interval_ms
+        ):
+            self._refresh_snapshot()
+
+        pressure = bool(self.candidate_snapshot) and (
+            len(self.candidate_snapshot) > self.available_count or bool(self.inflight)
         )
         if pressure:
             self.last_pressure_at = time.monotonic()
@@ -293,7 +333,7 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
             ):
                 self._shed_one()
         elif (
-            not selected and not self.inflight and len(self.adapters) > 1
+            not self.candidate_snapshot and not self.inflight and len(self.adapters) > 1
             and (time.monotonic() - self.last_pressure_at) * 1000 >= self.shed_after_ms
         ):
             self._shed_one()
@@ -303,7 +343,12 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
         )
         visit_id = f"VISIT-{self.host}-{now_ms()}-{self.sequence}"
         self.sequence += 1
-        for index, package_id in enumerate(selected[:capacity], 1):
+        selected = []
+        while self.candidate_snapshot and len(selected) < capacity:
+            package_id = self.candidate_snapshot.pop(0)
+            if self._still_candidate(package_id):
+                selected.append(package_id)
+        for index, package_id in enumerate(selected, 1):
             adapter = self.available.get()
             self.available_count -= 1
             dispatch_id = f"{visit_id}:{index}"

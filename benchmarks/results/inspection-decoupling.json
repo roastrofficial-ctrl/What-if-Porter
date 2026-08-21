@@ -1,0 +1,37 @@
+{
+  "schema": "PORTER-ATTENTION-INSPECTION-DECOUPLING/1",
+  "results": [
+    {
+      "shape": "full-capacity-100-reaps",
+      "policy": "eager",
+      "probe_ms": 2958.257,
+      "inspections": 101,
+      "inspection_ms": 3062.045
+    },
+    {
+      "shape": "full-capacity-100-reaps",
+      "policy": "snapshot",
+      "probe_ms": 0.608,
+      "inspections": 1,
+      "inspection_ms": 86.937
+    },
+    {
+      "shape": "200-candidates-10ms",
+      "policy": "eager",
+      "drain_ms": 2764.527,
+      "inspections": 123,
+      "inspection_ms": 2558.545,
+      "peak_adapters": 4,
+      "returns": 200
+    },
+    {
+      "shape": "200-candidates-10ms",
+      "policy": "snapshot",
+      "drain_ms": 2023.234,
+      "inspections": 5,
+      "inspection_ms": 155.525,
+      "peak_adapters": 4,
+      "returns": 200
+    }
+  ]
+}
