@@ -2,12 +2,14 @@ import threading
 import time
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from porter.daemon import Porter
 from porter.custody import collect_package
 from porter.host_runtime import HostRuntime
 from porter.opportunities import BoundedOpportunityRuntime, ElasticOpportunityRuntime
+import porter.opportunities as opportunity_module
 from porter.protocol import package
 
 
@@ -319,6 +321,82 @@ class OpportunitySchedulingTest(unittest.TestCase):
         runtime.drain(1)
         self.assertEqual(runtime.control_returns, 1)
         runtime.close()
+
+    def test_serial_publication_overlaps_only_adapter_waits(self):
+        self.accept(4)
+        gate = threading.Event()
+        runtime = BoundedOpportunityRuntime(
+            ipc=self.root, host="host", adapters=[GateAdapter(gate) for _ in range(4)],
+            max_inflight_offers=4, serial_publication=True,
+            kinds={"demo.work"}, batch_size=10, idle_ms=1,
+            journal=self.root / "phased.jsonl",
+        )
+        runtime.visit()
+        self.wait_for(lambda: len(runtime.inflight) == 4)
+        self.assertEqual(len(list((self.root / "collections" / "facts").glob("CL-*.json"))), 4)
+        self.assertEqual(runtime.maximum_opportunities, 4)
+        self.assertEqual(runtime.publication_in_progress, 0)
+        gate.set(); runtime.drain(4); runtime.close()
+
+    def test_serial_publication_never_overlaps_canonical_transition(self):
+        self.accept(4)
+        active = 0
+        maximum = 0
+        lock = threading.Lock()
+        original = opportunity_module.collect_package
+        def measured(*args, **kwargs):
+            nonlocal active, maximum
+            with lock:
+                active += 1; maximum = max(maximum, active)
+            try:
+                time.sleep(.01)
+                return original(*args, **kwargs)
+            finally:
+                with lock:
+                    active -= 1
+        runtime = BoundedOpportunityRuntime(
+            ipc=self.root, host="host", adapters=[GateAdapter() for _ in range(4)],
+            max_inflight_offers=4, serial_publication=True,
+            kinds={"demo.work"}, batch_size=10, idle_ms=1,
+            journal=self.root / "serial-publication.jsonl",
+        )
+        with patch("porter.opportunities.collect_package", measured):
+            runtime.visit(); runtime.drain(4)
+        self.assertEqual(maximum, 1)
+        runtime.close()
+
+    def test_crash_gap_after_cl_has_no_queue_state_and_reoffers_on_restart(self):
+        self.accept(1)
+        class GapRuntime(BoundedOpportunityRuntime):
+            def after_publication(inner, _package_id, _collection):
+                raise RuntimeError("lost after CL before offer")
+        first_adapter = GateAdapter()
+        first = GapRuntime(
+            ipc=self.root, host="host", adapters=[first_adapter],
+            max_inflight_offers=1, serial_publication=True,
+            kinds={"demo.work"}, batch_size=1, idle_ms=1,
+            journal=self.root / "gap.jsonl",
+        )
+        first.visit()
+        self.assertEqual(len(list((self.root / "collections" / "facts").glob("CL-*.json"))), 1)
+        self.assertEqual(first_adapter.collections, [])
+        self.assertEqual(len(list((self.root / "host-runtime" / "dispatch-returned").glob("*.json"))), 0)
+        names = {path.name.lower() for path in self.root.glob("**/*") if path.is_file()}
+        self.assertFalse(any(word in name for name in names
+                             for word in ("queued", "running", "processing", "worker")))
+        first.close()
+
+        second_adapter = GateAdapter()
+        restarted = BoundedOpportunityRuntime(
+            ipc=self.root, host="host", adapters=[second_adapter],
+            max_inflight_offers=1, serial_publication=True,
+            kinds={"demo.work"}, batch_size=1, idle_ms=1,
+            journal=self.root / "restart.jsonl",
+        )
+        restarted.drain(1)
+        self.assertEqual(len(second_adapter.collections), 1)
+        self.assertEqual(len(list((self.root / "collections" / "facts").glob("CL-*.json"))), 1)
+        restarted.close()
 
 
 if __name__ == "__main__":

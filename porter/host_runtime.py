@@ -185,6 +185,9 @@ class HostRuntime:
                     settle_candidate(self.ipc, package_id)
                     removed_projection = True
                     continue
+                # A canonical CL recovered without returned-control evidence is
+                # precisely the crash gap that must be offered again. Its
+                # association suppresses stale Porter projections, not recovery.
             selected.append(package_id)
         if removed_projection and len(selected) < self.batch_size:
             refill = [value for value in self.candidates() if value not in selected]
@@ -322,6 +325,14 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--elastic-evidence-window", type=int, default=8)
     value.add_argument("--elastic-minimum-residence-ms", type=float, default=50)
     value.add_argument("--elastic-inspection-interval-ms", type=float, default=50)
+    publication = value.add_mutually_exclusive_group()
+    publication.add_argument(
+        "--serial-publication", dest="serial_publication", action="store_true"
+    )
+    publication.add_argument(
+        "--parallel-publication", dest="serial_publication", action="store_false"
+    )
+    value.set_defaults(serial_publication=True)
     return value
 
 
@@ -346,6 +357,7 @@ def main() -> None:
             evidence_window=args.elastic_evidence_window,
             minimum_capacity_residence_ms=args.elastic_minimum_residence_ms,
             inspection_interval_ms=args.elastic_inspection_interval_ms,
+            serial_publication=args.serial_publication,
             **common,
         )
     else:
@@ -363,6 +375,7 @@ def main() -> None:
         runtime = BoundedOpportunityRuntime(
             adapters=adapters,
             max_inflight_offers=args.max_inflight_offers,
+            serial_publication=args.serial_publication,
             **common,
         )
     runtime.run(args.once)

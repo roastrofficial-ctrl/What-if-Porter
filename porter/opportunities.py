@@ -20,7 +20,8 @@ class BoundedOpportunityRuntime(HostRuntime):
 
     def __init__(self, *args, adapters: list, max_inflight_offers: int,
                  scan_missing_collections: bool = False,
-                 allow_partial_pool: bool = False, **kwargs):
+                 allow_partial_pool: bool = False,
+                 serial_publication: bool = True, **kwargs):
         if max_inflight_offers < 1:
             raise ValueError("max_inflight_offers must be positive")
         if len(adapters) < max_inflight_offers and not allow_partial_pool:
@@ -29,6 +30,7 @@ class BoundedOpportunityRuntime(HostRuntime):
         self.adapters = adapters
         self.max_inflight_offers = max_inflight_offers
         self.scan_missing_collections = scan_missing_collections
+        self.serial_publication = serial_publication
         self.available: queue.SimpleQueue = queue.SimpleQueue()
         for adapter in adapters:
             self.available.put(adapter)
@@ -44,6 +46,8 @@ class BoundedOpportunityRuntime(HostRuntime):
         self.control_returns = 0
         self.operational_errors: list[tuple[str, BaseException]] = []
         self.maximum_inflight = 0
+        self.publication_in_progress = 0
+        self.maximum_opportunities = 0
 
     def _offer(self, package_id: str, adapter, dispatch_id: str):
         collection_started = time.perf_counter_ns()
@@ -52,6 +56,12 @@ class BoundedOpportunityRuntime(HostRuntime):
             scan_missing=self.scan_missing_collections,
         )
         collection_ms = (time.perf_counter_ns() - collection_started) / 1e6
+        return self._dispatch_collected(
+            package_id, adapter, dispatch_id, collection, collection_ms
+        )
+
+    def _dispatch_collected(self, package_id: str, adapter, dispatch_id: str,
+                            collection: dict, collection_ms: float):
         append_json(self.journal, {
             "observation": "DISPATCH_BEGAN", "at_ms": now_ms(),
             "host": self.host, "dispatch": dispatch_id, "package": package_id,
@@ -82,6 +92,37 @@ class BoundedOpportunityRuntime(HostRuntime):
         })
         return collection, dispatch_ms
 
+    def after_publication(self, _package_id: str, _collection: dict) -> None:
+        """Non-durable experiment hook at the existing CL-before-offer gap."""
+
+    def _submit_offer(self, package_id: str, adapter, dispatch_id: str) -> Future | None:
+        if not self.serial_publication:
+            return self.executor.submit(self._offer, package_id, adapter, dispatch_id)
+        began = time.perf_counter_ns()
+        self.publication_in_progress = 1
+        self.maximum_opportunities = max(
+            self.maximum_opportunities, len(self.inflight) + self.publication_in_progress
+        )
+        try:
+            collection = collect_package(
+                self.ipc, package_id, self.host,
+                scan_missing=self.scan_missing_collections,
+            )
+            collection_ms = (time.perf_counter_ns() - began) / 1e6
+            self.after_publication(package_id, collection)
+        except BaseException as exc:
+            self.operational_errors.append((package_id, exc))
+            self.submitted.discard(package_id)
+            self.available.put(adapter)
+            self.available_count += 1
+            return None
+        finally:
+            self.publication_in_progress = 0
+        return self.executor.submit(
+            self._dispatch_collected, package_id, adapter, dispatch_id,
+            collection, collection_ms,
+        )
+
     def _reap(self) -> int:
         returned = 0
         for future, (package_id, adapter) in list(self.inflight.items()):
@@ -107,7 +148,6 @@ class BoundedOpportunityRuntime(HostRuntime):
     def visit(self) -> int:
         if self.recovering:
             recover_collections(self.ipc)
-            self.recovering = False
         returned = self._reap()
         if self.stopping:
             return returned
@@ -120,6 +160,7 @@ class BoundedOpportunityRuntime(HostRuntime):
             package_id for package_id in self.candidates()
             if package_id not in self.submitted
         ][:capacity]
+        self.recovering = False
         visit_id = f"VISIT-{self.host}-{now_ms()}-{self.sequence}"
         self.sequence += 1
         for index, package_id in enumerate(selected, 1):
@@ -127,12 +168,15 @@ class BoundedOpportunityRuntime(HostRuntime):
             self.available_count -= 1
             dispatch_id = f"{visit_id}:{index}"
             self.submitted.add(package_id)
-            future = self.executor.submit(
-                self._offer, package_id, adapter, dispatch_id
-            )
+            future = self._submit_offer(package_id, adapter, dispatch_id)
+            if future is None:
+                continue
             self.inflight[future] = (package_id, adapter)
             self.started_at[future] = time.monotonic()
         self.maximum_inflight = max(self.maximum_inflight, len(self.inflight))
+        self.maximum_opportunities = max(
+            self.maximum_opportunities, len(self.inflight) + self.publication_in_progress
+        )
         return returned
 
     def drain(self, total: int, poll_ms: int = 1) -> int:
@@ -301,7 +345,6 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
     def visit(self) -> int:
         if self.recovering:
             recover_collections(self.ipc)
-            self.recovering = False
         returned = self._reap()
         if self.stopping:
             return returned
@@ -315,6 +358,7 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
             and (now - self.last_inspection_at) * 1000 >= self.inspection_interval_ms
         ):
             self._refresh_snapshot()
+            self.recovering = False
 
         pressure = bool(self.candidate_snapshot) and (
             len(self.candidate_snapshot) > self.available_count or bool(self.inflight)
@@ -353,10 +397,13 @@ class ElasticOpportunityRuntime(BoundedOpportunityRuntime):
             self.available_count -= 1
             dispatch_id = f"{visit_id}:{index}"
             self.submitted.add(package_id)
-            future = self.executor.submit(
-                self._offer, package_id, adapter, dispatch_id
-            )
+            future = self._submit_offer(package_id, adapter, dispatch_id)
+            if future is None:
+                continue
             self.inflight[future] = (package_id, adapter)
             self.started_at[future] = time.monotonic()
         self.maximum_inflight = max(self.maximum_inflight, len(self.inflight))
+        self.maximum_opportunities = max(
+            self.maximum_opportunities, len(self.inflight) + self.publication_in_progress
+        )
         return returned
