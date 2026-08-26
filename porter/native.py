@@ -159,13 +159,17 @@ class NativeCarriage:
         rendezvous: dict,
         listen: str,
         max_frame: int = MAX_FRAME,
+        custodian_identity: str | None = None,
+        recipient_custodians: dict[str, str] | None = None,
         continuity_authorities: dict | None = None,
     ):
         self.porter, self.root, self.identity = (
             porter,
             porter.ipc / "native",
-            porter.identity,
+            custodian_identity or porter.identity,
         )
+        self.served_recipient_identity = porter.identity
+        self.recipient_custodians = recipient_custodians or {}
         self.private_key = private_key
         self.rendezvous = rendezvous
         self.knowledge = RendezvousKnowledge(
@@ -175,9 +179,12 @@ class NativeCarriage:
         self.max_frame = min(max_frame, MAX_FRAME)
         self.running = True
         self._slots = threading.BoundedSemaphore(32)
-        for name in ("outgoing", "refused"):
+        for name in ("outgoing", "refused", "attribution"):
             (self.root / name).mkdir(parents=True, exist_ok=True)
         self._server = None
+
+    def custodian_for(self, recipient: str) -> str:
+        return self.recipient_custodians.get(recipient, recipient)
 
     def queue(
         self,
@@ -220,7 +227,7 @@ class NativeCarriage:
             evidence = self.porter.admission.outbound_proof(value)
             self.queue(
                 "PACKAGE",
-                value["to"],
+                self.custodian_for(value["to"]),
                 {"package": value, "admission": evidence},
                 f"CU-PKG-{value['package']}",
                 True,
@@ -232,7 +239,7 @@ class NativeCarriage:
             item = json.loads(path.read_text())
             value = item["ceremony"]
             self.queue(
-                "CEREMONY", value["to"], item, f"CU-CM-{value['ceremony']}", True
+                "CEREMONY", self.custodian_for(value["to"]), item, f"CU-CM-{value['ceremony']}", True
             )
             path.rename(path.with_suffix(".awaiting"))
 
@@ -390,6 +397,37 @@ class NativeCarriage:
         unit_class = envelope["class"]
         origin = envelope["from"]
         value = wrapped
+        if unit_class in {"ACCEPTANCE_EVIDENCE", "REFUSAL_EVIDENCE"}:
+            package_id = value.get("package")
+            queued = self.root / "outgoing" / f"CU-PKG-{package_id}.json"
+            if not queued.exists():
+                prior = self.root / "attribution" / f"{identity}.json"
+                if prior.exists() and json.loads(prior.read_text()).get("peer_custodian") == origin:
+                    return
+                raise NativeFrameRefused("native evidence has no matching outstanding Unit")
+            if json.loads(queued.read_text()).get("to") != origin:
+                raise NativeFrameRefused("native evidence came from another custodian")
+        elif unit_class == "CEREMONY_RESULT":
+            ceremony_id = value.get("ceremony")
+            queued = self.root / "outgoing" / f"CU-CM-{ceremony_id}.json"
+            if not queued.exists():
+                prior = self.root / "attribution" / f"{identity}.json"
+                if prior.exists() and json.loads(prior.read_text()).get("peer_custodian") == origin:
+                    return
+                raise NativeFrameRefused("ceremony result has no matching outstanding Unit")
+            if json.loads(queued.read_text()).get("to") != origin:
+                raise NativeFrameRefused("ceremony result came from another custodian")
+        atomic_json(
+            self.root / "attribution" / f"{identity}.json",
+            {
+                "protocol": "PORTER-CARRIAGE-ATTRIBUTION/1",
+                "unit": identity,
+                "class": unit_class,
+                "custodian": self.identity,
+                "peer_custodian": origin,
+                "observed_at_ms": int(time.time() * 1000),
+            },
+        )
         if unit_class == "PACKAGE":
             try:
                 result = self.porter.deposit(
@@ -425,12 +463,12 @@ class NativeCarriage:
                 f"CU-CR-{value['ceremony']['ceremony']}",
             )
         elif unit_class == "ACCEPTANCE_EVIDENCE":
-            self.porter._retain_native_acceptance(value)
+            self.porter._retain_native_acceptance(value, origin)
             (self.root / "outgoing" / f"CU-PKG-{value['package']}.json").unlink(
                 missing_ok=True
             )
         elif unit_class == "REFUSAL_EVIDENCE":
-            self.porter._retain_native_refusal(value)
+            self.porter._retain_native_refusal(value, origin)
             (self.root / "outgoing" / f"CU-PKG-{value['package']}.json").unlink(
                 missing_ok=True
             )

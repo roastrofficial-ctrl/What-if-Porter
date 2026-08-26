@@ -57,6 +57,8 @@ class Porter:
         native_private_key=None,
         native_rendezvous=None,
         native_listen=None,
+        native_custodian_identity=None,
+        native_recipient_custodians=None,
         continuity_authorities=None,
     ):
         self.identity = identity
@@ -109,6 +111,8 @@ class Porter:
                 native_private_key,
                 native_rendezvous or {},
                 native_listen,
+                custodian_identity=native_custodian_identity,
+                recipient_custodians=native_recipient_custodians or {},
                 continuity_authorities=continuity_authorities or {},
             )
 
@@ -211,7 +215,7 @@ class Porter:
                     )
             time.sleep(0.05)
 
-    def _retain_native_acceptance(self, receipt):
+    def _retain_native_acceptance(self, receipt, custodian=None):
         knowledge = retain_evidence(self.ipc, receipt)
         package_id = receipt["package"]
         (self.ipc / "outgoing" / f"{package_id}.awaiting").unlink(missing_ok=True)
@@ -222,6 +226,7 @@ class Porter:
                 "recipient": receipt["recipient"],
                 "acceptance": receipt["acceptance"],
                 "carriage": "PORTER-CARRIAGE/1",
+                **({"custodian": custodian} if custodian is not None else {}),
             },
         )
         ticket = ticket_for_package(self.ipc, package_id)
@@ -234,7 +239,7 @@ class Porter:
             )
         return knowledge
 
-    def _retain_native_refusal(self, evidence):
+    def _retain_native_refusal(self, evidence, custodian=None):
         package_id = evidence["package"]
         atomic_json(self.ipc / "refused" / f"{package_id}.json", evidence)
         (self.ipc / "outgoing" / f"{package_id}.awaiting").unlink(missing_ok=True)
@@ -480,6 +485,8 @@ def main():
     parser.add_argument("--native-listen")
     parser.add_argument("--native-private-key")
     parser.add_argument("--native-rendezvous", default="{}")
+    parser.add_argument("--native-custodian-identity")
+    parser.add_argument("--native-recipient-custodians", default="{}")
     parser.add_argument("--continuity-authorities", default="{}")
     args = parser.parse_args()
     porter = Porter(
@@ -492,6 +499,8 @@ def main():
         native_private_key=args.native_private_key,
         native_rendezvous=json.loads(args.native_rendezvous),
         native_listen=args.native_listen,
+        native_custodian_identity=args.native_custodian_identity,
+        native_recipient_custodians=json.loads(args.native_recipient_custodians),
         continuity_authorities=json.loads(args.continuity_authorities),
     )
     porter.crash_after_response_once = args.experiment_crash_before_acceptance_evidence
