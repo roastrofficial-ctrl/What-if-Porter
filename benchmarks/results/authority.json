@@ -1,0 +1,13 @@
+{
+  "vocabulary": "PORTER-AUTHORITY-BENCHMARK/1",
+  "measured_at": "2026-08-26",
+  "environment": "porter-attestation-check Docker image, --network none",
+  "sign_transition_median_ms": 0.048229,
+  "fork_verify_and_detect_median_ms": 0.1565415,
+  "chains": [
+    {"chain_length": 1, "verify_and_derive_median_ms": 0.082792, "encoded_evidence_bytes": 498},
+    {"chain_length": 10, "verify_and_derive_median_ms": 0.830375, "encoded_evidence_bytes": 4963},
+    {"chain_length": 100, "verify_and_derive_median_ms": 7.7832285, "encoded_evidence_bytes": 49874},
+    {"chain_length": 1000, "verify_and_derive_median_ms": 77.419042, "encoded_evidence_bytes": 501567}
+  ]
+}
