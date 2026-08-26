@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 import socket
@@ -10,6 +11,7 @@ import time
 import uuid
 from pathlib import Path
 
+from .carriage import package_digest
 from .introduction import canonical
 from .lodgement import atomic_json
 from .rendezvous import VOCABULARY as RENDEZVOUS_VOCABULARY
@@ -179,12 +181,64 @@ class NativeCarriage:
         self.max_frame = min(max_frame, MAX_FRAME)
         self.running = True
         self._slots = threading.BoundedSemaphore(32)
-        for name in ("outgoing", "refused", "attribution"):
+        for name in (
+            "outgoing",
+            "refused",
+            "attribution",
+            "evidence/acceptances",
+            "evidence/refusals",
+            "retired",
+        ):
             (self.root / name).mkdir(parents=True, exist_ok=True)
         self._server = None
 
     def custodian_for(self, recipient: str) -> str:
-        return self.recipient_custodians.get(recipient, recipient)
+        return self.custodians_for(recipient)[0]
+
+    def custodians_for(self, recipient: str) -> tuple[str, ...]:
+        configured = self.recipient_custodians.get(recipient, recipient)
+        values = configured if isinstance(configured, list) else [configured]
+        if not values or any(not isinstance(value, str) or not value for value in values):
+            raise ValueError("native recipient needs at least one custodian identity")
+        if len(set(values)) != len(values):
+            raise ValueError("native recipient custodian identities must be distinct")
+        return tuple(values)
+
+    def package_unit_id(self, package_id: str, recipient: str, custodian: str) -> str:
+        configured = self.recipient_custodians.get(recipient, recipient)
+        if not isinstance(configured, list):
+            return f"CU-PKG-{package_id}"
+        suffix = hashlib.sha256(custodian.encode()).hexdigest()[:12]
+        return f"CU-PKG-{package_id}-{suffix}"
+
+    def queue_package_custodian(self, value: dict, custodian: str, admission: dict | None = None) -> dict:
+        if custodian not in self.custodians_for(value["to"]):
+            raise ValueError("custodian is not selected for Package recipient")
+        return self.queue(
+            "PACKAGE",
+            custodian,
+            {"package": value, "admission": admission},
+            self.package_unit_id(value["package"], value["to"], custodian),
+            True,
+        )
+
+    def retire_package_custodian(self, package_id: str, custodian: str, reason: str) -> dict:
+        queued = self._package_unit(package_id, custodian)
+        if queued is None:
+            raise ValueError("no outstanding custodian attempt to retire")
+        value = json.loads(queued.read_text())
+        retired = {
+            **value,
+            "retired_at_ms": int(time.time() * 1000),
+            "retirement_reason": reason,
+            "attests": "DEPOSITOR_STOPPED_THIS_PHYSICAL_CARRIAGE_ATTEMPT",
+        }
+        target = self.root / "retired" / queued.name
+        if target.exists() and json.loads(target.read_text()) != retired:
+            raise ValueError("custodian attempt retirement changed")
+        if not target.exists(): atomic_json(target, retired)
+        queued.unlink()
+        return retired
 
     def queue(
         self,
@@ -225,13 +279,8 @@ class NativeCarriage:
 
             note_attempt(self.porter.ipc, value["package"])
             evidence = self.porter.admission.outbound_proof(value)
-            self.queue(
-                "PACKAGE",
-                self.custodian_for(value["to"]),
-                {"package": value, "admission": evidence},
-                f"CU-PKG-{value['package']}",
-                True,
-            )
+            for custodian in self.custodians_for(value["to"]):
+                self.queue_package_custodian(value, custodian, evidence)
             path.rename(path.with_suffix(".awaiting"))
         for path in sorted(
             (self.porter.ipc / "ceremonies" / "outgoing").glob("CM-*.json")
@@ -399,14 +448,14 @@ class NativeCarriage:
         value = wrapped
         if unit_class in {"ACCEPTANCE_EVIDENCE", "REFUSAL_EVIDENCE"}:
             package_id = value.get("package")
-            queued = self.root / "outgoing" / f"CU-PKG-{package_id}.json"
-            if not queued.exists():
+            queued = self._package_unit(package_id, origin)
+            if queued is None:
+                if self._package_units(package_id):
+                    raise NativeFrameRefused("native evidence came from another custodian")
                 prior = self.root / "attribution" / f"{identity}.json"
                 if prior.exists() and json.loads(prior.read_text()).get("peer_custodian") == origin:
                     return
                 raise NativeFrameRefused("native evidence has no matching outstanding Unit")
-            if json.loads(queued.read_text()).get("to") != origin:
-                raise NativeFrameRefused("native evidence came from another custodian")
         elif unit_class == "CEREMONY_RESULT":
             ceremony_id = value.get("ceremony")
             queued = self.root / "outgoing" / f"CU-CM-{ceremony_id}.json"
@@ -443,7 +492,8 @@ class NativeCarriage:
                     "package": value.get("package", {}).get("package"),
                 }
                 kind = "REFUSAL_EVIDENCE"
-            self.queue(kind, origin, result, f"CU-EV-{value['package']['package']}")
+            suffix = hashlib.sha256(self.identity.encode()).hexdigest()[:12]
+            self.queue(kind, origin, result, f"CU-EV-{value['package']['package']}-{suffix}")
         elif unit_class == "CEREMONY":
             try:
                 result = self.porter.ceremonies.receive(
@@ -463,15 +513,9 @@ class NativeCarriage:
                 f"CU-CR-{value['ceremony']['ceremony']}",
             )
         elif unit_class == "ACCEPTANCE_EVIDENCE":
-            self.porter._retain_native_acceptance(value, origin)
-            (self.root / "outgoing" / f"CU-PKG-{value['package']}.json").unlink(
-                missing_ok=True
-            )
+            self._retain_custodian_acceptance(value, origin, queued)
         elif unit_class == "REFUSAL_EVIDENCE":
-            self.porter._retain_native_refusal(value, origin)
-            (self.root / "outgoing" / f"CU-PKG-{value['package']}.json").unlink(
-                missing_ok=True
-            )
+            self._retain_custodian_refusal(value, origin, queued)
         elif unit_class == "CEREMONY_RESULT":
             if value.get("state") == "PENDING_PREDECESSOR":
                 return
@@ -480,3 +524,92 @@ class NativeCarriage:
             (self.root / "outgoing" / f"CU-CM-{value.get('ceremony')}.json").unlink(
                 missing_ok=True
             )
+
+    def _package_unit(self, package_id: str, custodian: str) -> Path | None:
+        for path in (self.root / "outgoing").glob(f"CU-PKG-{package_id}*.json"):
+            try:
+                value = json.loads(path.read_text())
+            except (OSError, json.JSONDecodeError):
+                continue
+            if value.get("class") == "PACKAGE" and value.get("to") == custodian:
+                return path
+        return None
+
+    def _package_units(self, package_id: str) -> list[Path]:
+        return list((self.root / "outgoing").glob(f"CU-PKG-{package_id}*.json"))
+
+    def _validate_custodian_receipt(self, receipt: dict, queued: Path) -> dict:
+        unit = json.loads(queued.read_text())
+        value = unit.get("value", {}).get("package", {})
+        required = {
+            "protocol", "kind", "package", "state", "recipient", "acceptance",
+            "accepted_at_ms", "package_digest", "attests",
+        }
+        if (
+            not isinstance(receipt, dict)
+            or not required <= receipt.keys()
+            or receipt.get("protocol") != "PORTER/1"
+            or receipt.get("kind") != "RECEIPT"
+            or receipt.get("state") != "REMOTE_PORTER_DURABLY_ACCEPTED"
+            or receipt.get("package") != value.get("package")
+            or receipt.get("recipient") != value.get("to")
+            or receipt.get("package_digest") != package_digest(value)
+            or receipt.get("attests") != "RECIPIENT_PORTER_ACCEPTED_RESPONSIBILITY"
+            or not isinstance(receipt.get("acceptance"), str)
+            or not receipt["acceptance"].startswith("AC-")
+            or not isinstance(receipt.get("accepted_at_ms"), int)
+        ):
+            raise NativeFrameRefused("custodian acceptance does not match queued Package")
+        return unit
+
+    def _retain_custodian_acceptance(self, receipt: dict, custodian: str, queued: Path) -> None:
+        unit = self._validate_custodian_receipt(receipt, queued)
+        package_id = receipt["package"]
+        retained = {
+            "protocol": "PORTER-CUSTODIAN-EVIDENCE/1",
+            "kind": "CUSTODIAN_ACCEPTANCE_KNOWN",
+            "custodian": custodian,
+            "unit": unit["unit"],
+            "recipient": receipt["recipient"],
+            "package": package_id,
+            "package_digest": receipt["package_digest"],
+            "receipt": receipt,
+        }
+        target = self.root / "evidence/acceptances" / f"{package_id}--{custodian}.json"
+        if target.exists() and json.loads(target.read_text()) != retained:
+            raise NativeFrameRefused("custodian changed acceptance evidence")
+        if not target.exists():
+            atomic_json(target, retained)
+        legacy = self.porter.ipc / "receipts" / f"{package_id}.json"
+        if not legacy.exists() or json.loads(legacy.read_text()) == receipt:
+            self.porter._retain_native_acceptance(receipt, custodian)
+        else:
+            self.porter.record(
+                "ADDITIONAL_REMOTE_ACCEPTANCE_KNOWN",
+                package_id,
+                {"recipient": receipt["recipient"], "acceptance": receipt["acceptance"], "custodian": custodian},
+            )
+            (self.porter.ipc / "outgoing" / f"{package_id}.awaiting").unlink(missing_ok=True)
+        queued.unlink(missing_ok=True)
+
+    def _retain_custodian_refusal(self, evidence: dict, custodian: str, queued: Path) -> None:
+        unit = json.loads(queued.read_text())
+        package_id = evidence.get("package")
+        if package_id != unit.get("value", {}).get("package", {}).get("package"):
+            raise NativeFrameRefused("custodian refusal does not match queued Package")
+        retained = {
+            "protocol": "PORTER-CUSTODIAN-EVIDENCE/1",
+            "kind": "CUSTODIAN_REFUSAL_KNOWN",
+            "custodian": custodian,
+            "unit": unit["unit"],
+            "recipient": unit["value"]["package"]["to"],
+            "package": package_id,
+            "evidence": evidence,
+        }
+        target = self.root / "evidence/refusals" / f"{package_id}--{custodian}.json"
+        if target.exists() and json.loads(target.read_text()) != retained:
+            raise NativeFrameRefused("custodian changed refusal evidence")
+        if not target.exists(): atomic_json(target, retained)
+        queued.unlink(missing_ok=True)
+        if not self._package_units(package_id) and not list((self.root / "evidence/acceptances").glob(f"{package_id}--*.json")):
+            self.porter._retain_native_refusal(evidence, custodian)

@@ -3,6 +3,20 @@
 PORTER 1.0 freezes the correspondence semantics earned by Generations I–VI.
 Performance work is conformant only while every statement below remains true.
 
+## Custodian boundary
+
+- Hosts have no network presence. Custodians do.
+- A Porter speaks only for custody and carriage facts it actually establishes.
+  It never represents Host identity, intent, application state or global
+  availability.
+- Host recipient identity and Porter custodian identity are independent. Package
+  addressing and correspondence standing name Hosts; native Units and
+  rendezvous knowledge name custodians.
+- Custodian selection is depositor-local carriage policy. It adds no topology,
+  replica state or custodian identity to an immutable Package.
+- No Porter needs sibling awareness, a global Host-to-custodian mapping, leader
+  election or quorum state to assume or relinquish its own responsibility.
+
 ## PORTER 1.5 rendezvous continuity
 
 - Static rendezvous configuration establishes only local generation-zero knowledge.
