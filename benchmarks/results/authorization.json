@@ -1,0 +1,17 @@
+{
+  "vocabulary": "PORTER-AUTHORIZATION-BENCHMARK/1",
+  "measured_at": "2026-08-26",
+  "environment": "porter-attestation-check Docker image, --network none",
+  "hmac_sign_median_ms": 0.006958,
+  "hmac_verify_median_ms": 0.0061665,
+  "ed25519_sign_median_ms": 0.0575415,
+  "ed25519_verify_median_ms": 0.08775,
+  "fanout_verify_median_ms": {"1": 0.082709, "3": 0.255354, "9": 0.775854},
+  "chains": [
+    {"chain_length": 1, "derive_plus_verify_median_ms": 0.238771},
+    {"chain_length": 10, "derive_plus_verify_median_ms": 1.1354165},
+    {"chain_length": 100, "derive_plus_verify_median_ms": 11.612021},
+    {"chain_length": 1000, "derive_plus_verify_median_ms": 94.957}
+  ],
+  "authorization_evidence_bytes": 585
+}

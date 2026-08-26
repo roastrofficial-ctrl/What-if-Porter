@@ -210,6 +210,7 @@ def derive(root: dict | None, transitions: list[dict]) -> dict:
     current = root["genesis"]
     terms = root["genesis_terms"]
     lineage = []
+    known_terms = {current: terms}
     visited = set()
     while True:
         if current in visited:
@@ -222,6 +223,7 @@ def derive(root: dict | None, transitions: list[dict]) -> dict:
                 "state": "FORKED",
                 "root": root["root"],
                 "predecessor": current,
+                "predecessor_terms": terms,
                 "branches": [
                     {
                         "transition": value["transition"],
@@ -231,12 +233,17 @@ def derive(root: dict | None, transitions: list[dict]) -> dict:
                     for value in successors
                 ],
                 "lineage": lineage,
+                "known_terms": {
+                    **known_terms,
+                    **{value["successor"]: value["successor_terms"] for value in successors},
+                },
             }
         if not successors:
             break
         chosen = successors[0]
         lineage.append(chosen["transition"])
         current, terms = chosen["successor"], chosen["successor_terms"]
+        known_terms[current] = terms
 
     used = set(lineage)
     pending = sorted(identity for identity in valid if identity not in used)
@@ -248,6 +255,7 @@ def derive(root: dict | None, transitions: list[dict]) -> dict:
         "current_terms": terms,
         "lineage": lineage,
         "pending": pending,
+        "known_terms": known_terms,
     }
 
 
