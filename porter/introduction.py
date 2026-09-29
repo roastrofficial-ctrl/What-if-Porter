@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .lodgement import atomic_json
+from .canonical import canonical
 
 VOCABULARY = "PORTER-INTRODUCTION/1"
 MAX_AUTHORITY_EVIDENCE_BYTES = 16384
@@ -26,10 +27,6 @@ class AdmissionRefused(ValueError):
 
 class StandingChangeInterrupted(RuntimeError):
     pass
-
-
-def canonical(value: dict) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 
 def package_bytes(value: dict) -> int:

@@ -83,11 +83,11 @@ class IntroductionsUnderAttack(unittest.TestCase):
         self.assertEqual(len(self.facts()),2)
 
     def test_claim_provider_supplies_identity_but_local_policy_supplies_terms(self):
-        claim={"passport":"signed-evidence"};calls=[]
+        claim={"passport":"signed-evidence"};calls=[];local_terms=terms()
         def passport_adapter(evidence):calls.append(evidence);return {"subject":"known-service","issuer":"technical-passport:BPA/1"}
-        fact=establish_from_claim(self.root/"claim", "harmonicdb", claim, passport_adapter, "capability", terms())
+        fact=establish_from_claim(self.root/"claim", "harmonicdb", claim, passport_adapter, "capability", local_terms)
         self.assertEqual(fact["sender"],"known-service");self.assertEqual(fact["terms"]["kinds"],["hdbe.call"]);self.assertEqual(calls,[claim])
-        again=establish_from_claim(self.root/"claim", "harmonicdb", claim, passport_adapter, "capability", terms())
+        again=establish_from_claim(self.root/"claim", "harmonicdb", claim, passport_adapter, "capability", local_terms)
         self.assertEqual(again["introduction"],fact["introduction"])
         with self.assertRaises(AdmissionRefused):establish_from_claim(self.root/"bad", "harmonicdb", {"blob":"x"*17000}, passport_adapter, "x", terms())
         with self.assertRaises(AdmissionRefused):establish_from_claim(self.root/"down", "harmonicdb", claim, lambda _e: (_ for _ in ()).throw(OSError()), "x", terms())

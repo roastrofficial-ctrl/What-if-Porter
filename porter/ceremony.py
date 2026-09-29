@@ -8,7 +8,8 @@ import time
 import uuid
 from pathlib import Path
 
-from .introduction import canonical, relationship_fact
+from .record_encoding import canonical
+from .introduction import relationship_fact
 from .lodgement import atomic_json
 
 VOCABULARY = "PORTER-CEREMONY/1"

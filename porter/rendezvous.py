@@ -7,7 +7,8 @@ import json
 import time
 from pathlib import Path
 
-from .introduction import canonical, projection_json
+from .record_encoding import canonical
+from .introduction import projection_json
 from .lodgement import atomic_json
 
 VOCABULARY = "PORTER-RENDEZVOUS/1"

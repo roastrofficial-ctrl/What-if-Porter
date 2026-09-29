@@ -11,7 +11,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 
 from .authority import AuthorityEvidenceRefused
 from .carriage import package_digest
-from .introduction import canonical, package_bytes
+from .record_encoding import canonical
+from .introduction import package_bytes
 
 
 VOCABULARY = "PORTER-AUTHORIZATION/1"

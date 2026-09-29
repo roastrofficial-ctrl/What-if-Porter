@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
-from .introduction import canonical
+from .record_encoding import canonical
 
 VOCABULARY = "PORTER-ATTESTATION/1"
 MAX_NONCE_BYTES = 256

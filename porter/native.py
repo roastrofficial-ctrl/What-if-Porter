@@ -12,7 +12,7 @@ import uuid
 from pathlib import Path
 
 from .carriage import package_digest
-from .introduction import canonical
+from .canonical import canonical, loads as strict_loads
 from .lodgement import atomic_json
 from .rendezvous import VOCABULARY as RENDEZVOUS_VOCABULARY
 from .rendezvous import RendezvousKnowledge
@@ -102,7 +102,7 @@ def open_frame(
 ) -> tuple[dict, dict]:
     hashes, _, X25519PrivateKey, X25519PublicKey, AESGCM, HKDF = _crypto()
     try:
-        envelope = json.loads(frame)
+        envelope = strict_loads(frame)
     except Exception as exc:
         raise NativeFrameRefused("invalid native envelope") from exc
     if (
@@ -137,7 +137,7 @@ def open_frame(
             base64.b64decode(envelope["ciphertext"]),
             aad,
         )
-        value = json.loads(clear)
+        value = strict_loads(clear)
     except Exception as exc:
         raise NativeFrameRefused("protected native unit failed authentication") from exc
     return envelope, value

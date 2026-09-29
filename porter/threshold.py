@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 
 from .carriage import package_digest
-from .introduction import canonical
+from .record_encoding import canonical
 from .protocol import package
 
 VOCABULARY = "PORTER-THRESHOLD/1"

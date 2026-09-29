@@ -8,7 +8,7 @@ from pathlib import Path
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
-from .introduction import canonical
+from .record_encoding import canonical
 
 VOCABULARY = "PORTER-CUSTODY-EVIDENCE/1"
 

@@ -9,7 +9,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from .carriage import package_digest
-from .introduction import canonical
+from .record_encoding import canonical
 
 VOCABULARY = "PORTER-EVIDENCE-IDENTITY/1"
 STATEMENT_VOCABULARY = "PORTER-SIGNED-CUSTODY/1"

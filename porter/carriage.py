@@ -7,10 +7,11 @@ from pathlib import Path
 
 from .lodgement import atomic_json, now_ms
 from .candidates import publish
+from .canonical import canonical
 
 
 def package_digest(value: dict) -> str:
-    raw = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    raw = canonical(value)
     return "sha256:" + hashlib.sha256(raw).hexdigest()
 
 

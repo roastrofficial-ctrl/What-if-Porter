@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .custody import collect_package
 from .evidence_identity import EvidenceKeyHistory, sign_acceptance, verify_acceptance
-from .introduction import canonical
+from .record_encoding import canonical
 from .lodgement import atomic_json
 from .native import HEADER, open_frame, seal
 from .carriage import package_digest
