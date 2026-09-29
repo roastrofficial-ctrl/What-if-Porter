@@ -42,6 +42,12 @@ recipient, Kind, expiry and payload. Exact replay of an existing AC returns the
 same evidence even after Introduction expiry because it creates no new custody.
 Different bytes under that identity remain an error.
 
+The normative [Package-bound possession/1 byte binding](../PorterNet/spec/PACKAGE-POSSESSION-1.md)
+and its fixed vector resolve the formerly unspecified HMAC input and admission
+representation. This amendment selects unprefixed lowercase digest hex as the
+HMAC message and structured `PORTER-INTRODUCTION/1` admission evidence. It does
+not change admission ordering or settle general canonical JSON binding (D-001).
+
 Custody allowance combines Package count and canonical Package bytes. Count
 protects the two-inode-per-acceptance pressure found in 1.0; bytes prevents a few
 large Packages consuming the same allowance. Collection releases responsibility.
