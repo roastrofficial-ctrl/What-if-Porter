@@ -557,7 +557,9 @@ class NativeCarriage:
             or receipt.get("attests") != "RECIPIENT_PORTER_ACCEPTED_RESPONSIBILITY"
             or not isinstance(receipt.get("acceptance"), str)
             or not receipt["acceptance"].startswith("AC-")
-            or not isinstance(receipt.get("accepted_at_ms"), int)
+            or len(receipt["acceptance"]) <= 3
+            or type(receipt.get("accepted_at_ms")) is not int
+            or receipt["accepted_at_ms"] < 0
         ):
             raise NativeFrameRefused("custodian acceptance does not match queued Package")
         return unit
